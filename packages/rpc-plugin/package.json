@@ -1,0 +1,50 @@
+{
+	"name": "@honestjs/rpc-plugin",
+	"version": "0.0.0",
+	"description": "RPC plugin for HonestJS framework",
+	"main": "./dist/index.js",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.mjs",
+			"require": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsup",
+		"dev": "tsup --watch",
+		"clean": "rm -rf dist",
+		"type-check": "tsc --noEmit"
+	},
+	"keywords": [
+		"honestjs",
+		"hono",
+		"nestjs",
+		"plugins"
+	],
+	"author": "Orkhan Karimov <karimovok1@gmail.com> (https://github.com/kerimovok)",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/honestjs/plugins.git",
+		"directory": "packages/rpc-plugin"
+	},
+	"dependencies": {
+		"ts-json-schema-generator": "^2.4.0",
+		"ts-morph": "^26.0.0"
+	},
+	"devDependencies": {
+		"honestjs": "^0.1.5",
+		"hono": "^4.9.4"
+	},
+	"peerDependencies": {
+		"honestjs": "^0.1.0",
+		"hono": "^4.0.0",
+		"typescript": "^5.x"
+	}
+}

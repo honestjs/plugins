@@ -1,0 +1,31 @@
+{
+	"name": "@honestjs/plugins",
+	"private": true,
+	"scripts": {
+		"build": "turbo build",
+		"dev": "turbo dev",
+		"type-check": "turbo type-check",
+		"clean": "turbo clean",
+		"changeset": "changeset",
+		"ci:release": "pnpm build && changeset publish",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"prepare": "husky"
+	},
+	"devDependencies": {
+		"@changesets/cli": "^2.29.6",
+		"@types/node": "^24.3.0",
+		"husky": "^9.1.7",
+		"lint-staged": "^16.1.5",
+		"prettier": "^3.6.2",
+		"tsup": "^8.5.0",
+		"turbo": "^2.5.6",
+		"typescript": "^5.9.2"
+	},
+	"lint-staged": {
+		"*.{ts,tsx,js,jsx,json,md}": [
+			"prettier --write"
+		]
+	},
+	"packageManager": "pnpm@10.12.4"
+}
