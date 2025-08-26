@@ -1,14 +1,13 @@
 # @honestjs/rpc-plugin
 
 A comprehensive RPC plugin for HonestJS that combines route analysis, schema generation, and client generation into a
-single, tightly-coupled solution.
+single solution.
 
 ## Features
 
 - **Route Analysis**: Automatically analyzes controller methods and extracts type information using ts-morph
 - **Schema Generation**: Generates JSON schemas and TypeScript interfaces from types used in controllers
 - **Client Generation**: Creates a fully-typed TypeScript RPC client with proper parameter typing
-- **Tight Integration**: All components share data directly, eliminating duplication and file I/O overhead
 - **Type Safety**: Full TypeScript support with generated types and interfaces
 
 ## Installation
@@ -51,15 +50,16 @@ interface RPCPluginOptions {
 
 ## What It Generates
 
-### 1. TypeScript RPC Client (`client.ts`)
+### TypeScript RPC Client (`client.ts`)
 
-A fully-typed client that provides:
+The plugin generates a single comprehensive file that includes both the client and all type definitions:
 
 - **Controller-based organization**: Methods grouped by controller
 - **Type-safe parameters**: Path, query, and body parameters with proper typing
 - **Flexible request options**: Clean separation of params, query, body, and headers
 - **Error handling**: Built-in error handling with custom ApiError class
 - **Authentication support**: Easy header and auth token management
+- **Integrated types**: All DTOs, interfaces, and utility types included in the same file
 
 ```typescript
 // Generated client usage
@@ -90,14 +90,12 @@ apiClient.setDefaultHeaders({
 })
 ```
 
-### 2. Type Definitions (`types.ts`)
+The generated `client.ts` file contains everything you need:
 
-Comprehensive type definitions including:
-
-- **Generated DTOs**: TypeScript interfaces from your controller types
-- **Route information**: Complete route metadata with parameter types
-- **API response types**: Standardized response and error types
-- **Utility types**: Request options and parameter types
+- **ApiClient class** with all your controller methods
+- **Type definitions** for requests, responses, and DTOs
+- **Utility types** like RequestOptions and ApiResponse
+- **Generated interfaces** from your controller types
 
 ## How It Works
 
