@@ -34,8 +34,8 @@ export class RPCPlugin implements IPlugin {
 	private readonly clientGenerator: ClientGeneratorService
 
 	// Internal state
-	private readonly analyzedRoutes: ExtendedRouteInfo[] = []
-	private readonly analyzedSchemas: SchemaInfo[] = []
+	private analyzedRoutes: ExtendedRouteInfo[] = []
+	private analyzedSchemas: SchemaInfo[] = []
 	private generatedInfo: GeneratedClientInfo | null = null
 
 	constructor(options: RPCPluginOptions = {}) {
@@ -99,11 +99,16 @@ export class RPCPlugin implements IPlugin {
 		try {
 			this.log('Starting comprehensive RPC analysis...')
 
+			// Clear previous analysis results to prevent memory leaks
+			this.analyzedRoutes = []
+			this.analyzedSchemas = []
+			this.generatedInfo = null
+
 			// Step 1: Analyze routes and extract type information
-			this.analyzedRoutes.push(...(await this.routeAnalyzer.analyzeControllerMethods()))
+			this.analyzedRoutes = await this.routeAnalyzer.analyzeControllerMethods()
 
 			// Step 2: Generate schemas from the types we found
-			this.analyzedSchemas.push(...(await this.schemaGenerator.generateSchemas()))
+			this.analyzedSchemas = await this.schemaGenerator.generateSchemas()
 
 			// Step 3: Generate the RPC client
 			this.generatedInfo = await this.clientGenerator.generateClient(this.analyzedRoutes, this.analyzedSchemas)
@@ -154,13 +159,6 @@ export class RPCPlugin implements IPlugin {
 		this.routeAnalyzer.dispose()
 		this.schemaGenerator.dispose()
 		this.log('Resources cleaned up')
-	}
-
-	/**
-	 * Plugin lifecycle cleanup
-	 */
-	onDestroy(): void {
-		this.dispose()
 	}
 
 	// ============================================================================

@@ -130,40 +130,6 @@ The generated `client.ts` file contains everything you need:
 
 ## Example Generated Output
 
-### Route Analysis
-
-```typescript
-export interface ExtendedRouteInfo {
-	controller: string
-	handler: string
-	method: string
-	path: string
-	fullPath: string
-	returns?: string
-	parameters?: ParameterMetadataWithType[]
-}
-
-export const ANALYZED_ROUTES = [
-	{
-		controller: 'UsersController',
-		handler: 'create',
-		method: 'POST',
-		path: '/',
-		fullPath: '/api/v1/users/',
-		returns: 'Promise<User>',
-		parameters: [
-			{
-				index: 0,
-				name: 'createUserDto',
-				type: 'CreateUserDto',
-				required: true,
-				data: undefined
-			}
-		]
-	}
-] as const
-```
-
 ### Generated Client
 
 ```typescript

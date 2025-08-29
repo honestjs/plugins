@@ -35,6 +35,7 @@ export class SchemaGeneratorService {
 			tsConfigFilePath: this.tsConfigPath
 		})
 
+		project.addSourceFilesAtPaths([this.controllerPattern])
 		this.projects.push(project)
 		return project
 	}
