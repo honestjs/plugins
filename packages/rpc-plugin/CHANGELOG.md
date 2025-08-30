@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.1.0
+
+### Minor Changes
+
+- 8a16124: Added custom fetch function parameter
+
 ## 1.0.1
 
 ### Patch Changes
