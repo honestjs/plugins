@@ -12,6 +12,11 @@ export type RequestOptions<TParams = never, TQuery = never, TBody = never, THead
 		(THeaders extends never ? { headers?: never } : { headers: THeaders })
 
 /**
+ * Custom fetch function type that matches the standard fetch API
+ */
+export type FetchFunction = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+
+/**
  * API Response wrapper
  */
 export interface ApiResponse<T = any> {

@@ -6,4 +6,4 @@ export type { RPCPluginOptions } from '../rpc.plugin'
 
 export type { GeneratedClientInfo, SchemaInfo } from './schema.types'
 
-export type { ApiError, ApiResponse, RequestOptions } from './client.types'
+export type { ApiError, ApiResponse, FetchFunction, RequestOptions } from './client.types'

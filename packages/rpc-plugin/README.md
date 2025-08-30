@@ -58,7 +58,8 @@ The plugin generates a single comprehensive file that includes both the client a
 - **Type-safe parameters**: Path, query, and body parameters with proper typing
 - **Flexible request options**: Clean separation of params, query, body, and headers
 - **Error handling**: Built-in error handling with custom ApiError class
-- **Authentication support**: Easy header and auth token management
+- **Header management**: Easy custom header management
+- **Custom fetch support**: Inject custom fetch implementations for testing, middleware, and compatibility
 - **Integrated types**: All DTOs, interfaces, and utility types included in the same file
 
 ```typescript
@@ -81,12 +82,21 @@ const user = await apiClient.users.getById({
 	params: { id: '123' }
 })
 
-// Set default authentication
-apiClient.setDefaultAuth('your-jwt-token')
-
 // Set custom headers
 apiClient.setDefaultHeaders({
-	'X-API-Key': 'your-api-key'
+	'X-API-Key': 'your-api-key',
+	Authorization: 'Bearer your-jwt-token'
+})
+
+// Use with custom fetch function (e.g., for testing or custom logic)
+const customFetch = (input: RequestInfo | URL, init?: RequestInit) => {
+	console.log('Making request to:', input)
+	return fetch(input, init)
+}
+
+const apiClientWithCustomFetch = new ApiClient('http://localhost:3000', {
+	fetchFn: customFetch,
+	defaultHeaders: { 'X-Custom-Header': 'value' }
 })
 ```
 
@@ -96,6 +106,96 @@ The generated `client.ts` file contains everything you need:
 - **Type definitions** for requests, responses, and DTOs
 - **Utility types** like RequestOptions and ApiResponse
 - **Generated interfaces** from your controller types
+
+## Custom Fetch Functions
+
+The RPC client supports custom fetch implementations, which is useful for:
+
+- **Testing**: Inject mock fetch functions for unit testing
+- **Custom Logic**: Add logging, retries, or other middleware
+- **Environment Compatibility**: Use different fetch implementations (node-fetch, undici, etc.)
+- **Interceptors**: Wrap requests with custom logic before/after execution
+
+### Basic Custom Fetch Example
+
+```typescript
+// Simple logging wrapper
+const loggingFetch = (input: RequestInfo | URL, init?: RequestInit) => {
+	console.log(`[${new Date().toISOString()}] Making ${init?.method || 'GET'} request to:`, input)
+	return fetch(input, init)
+}
+
+const apiClient = new ApiClient('http://localhost:3000', {
+	fetchFn: loggingFetch
+})
+```
+
+### Advanced Custom Fetch Examples
+
+```typescript
+// Retry logic with exponential backoff
+const retryFetch = (maxRetries = 3) => {
+	return async (input: RequestInfo | URL, init?: RequestInit) => {
+		for (let i = 0; i <= maxRetries; i++) {
+			try {
+				const response = await fetch(input, init)
+				if (response.ok) return response
+
+				if (i === maxRetries) return response
+
+				// Wait with exponential backoff
+				await new Promise((resolve) => setTimeout(resolve, Math.pow(2, i) * 1000))
+			} catch (error) {
+				if (i === maxRetries) throw error
+			}
+		}
+		throw new Error('Max retries exceeded')
+	}
+}
+
+const apiClientWithRetry = new ApiClient('http://localhost:3000', {
+	fetchFn: retryFetch(3)
+})
+
+// Request/response interceptor
+const interceptorFetch = (input: RequestInfo | URL, init?: RequestInit) => {
+	// Pre-request logic
+	const enhancedInit = {
+		...init,
+		headers: {
+			...init?.headers,
+			'X-Request-ID': crypto.randomUUID()
+		}
+	}
+
+	return fetch(input, enhancedInit).then((response) => {
+		// Post-response logic
+		console.log(`Response status: ${response.status}`)
+		return response
+	})
+}
+
+const apiClientWithInterceptor = new ApiClient('http://localhost:3000', {
+	fetchFn: interceptorFetch
+})
+```
+
+### Testing with Custom Fetch
+
+```typescript
+// Mock fetch for testing
+const mockFetch = jest.fn().mockResolvedValue({
+	ok: true,
+	json: () => Promise.resolve({ data: { id: '123', name: 'Test User' } })
+})
+
+const testApiClient = new ApiClient('http://test.com', {
+	fetchFn: mockFetch
+})
+
+// Your test can now verify the mock was called
+expect(mockFetch).toHaveBeenCalledWith('http://test.com/api/v1/users/123', expect.objectContaining({ method: 'GET' }))
+```
 
 ## How It Works
 

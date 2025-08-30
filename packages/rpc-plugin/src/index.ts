@@ -7,6 +7,7 @@ export type {
 	ApiResponse,
 	ControllerGroups,
 	ExtendedRouteInfo,
+	FetchFunction,
 	GeneratedClientInfo,
 	ParameterMetadataWithType,
 	RequestOptions,
