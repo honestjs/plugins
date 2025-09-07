@@ -1,14 +1,7 @@
-# @honestjs/rpc-plugin
+# RPC Plugin
 
-A comprehensive RPC plugin for HonestJS that combines route analysis, schema generation, and client generation into a
-single solution.
-
-## Features
-
-- **Route Analysis**: Automatically analyzes controller methods and extracts type information using ts-morph
-- **Schema Generation**: Generates JSON schemas and TypeScript interfaces from types used in controllers
-- **Client Generation**: Creates a fully-typed TypeScript RPC client with proper parameter typing
-- **Type Safety**: Full TypeScript support with generated types and interfaces
+The RPC Plugin automatically analyzes your HonestJS controllers and generates a fully-typed TypeScript RPC client with
+proper parameter typing.
 
 ## Installation
 
@@ -20,24 +13,18 @@ yarn add @honestjs/rpc-plugin
 pnpm add @honestjs/rpc-plugin
 ```
 
-## Usage
-
-### Basic Setup
+## Basic Setup
 
 ```typescript
 import { RPCPlugin } from '@honestjs/rpc-plugin'
 import { Application } from 'honestjs'
 
 const app = new Application({
-	plugins: [
-		new RPCPlugin({
-			outputDir: './generated/rpc'
-		})
-	]
+	plugins: [RPCPlugin]
 })
 ```
 
-### Configuration Options
+## Configuration Options
 
 ```typescript
 interface RPCPluginOptions {
@@ -86,17 +73,6 @@ const user = await apiClient.users.getById({
 apiClient.setDefaultHeaders({
 	'X-API-Key': 'your-api-key',
 	Authorization: 'Bearer your-jwt-token'
-})
-
-// Use with custom fetch function (e.g., for testing or custom logic)
-const customFetch = (input: RequestInfo | URL, init?: RequestInit) => {
-	console.log('Making request to:', input)
-	return fetch(input, init)
-}
-
-const apiClientWithCustomFetch = new ApiClient('http://localhost:3000', {
-	fetchFn: customFetch,
-	defaultHeaders: { 'X-Custom-Header': 'value' }
 })
 ```
 
@@ -220,14 +196,6 @@ expect(mockFetch).toHaveBeenCalledWith('http://test.com/api/v1/users/123', expec
 - Creates parameter validation and typing
 - Builds the complete RPC client with proper error handling
 
-## Benefits of the Unified Approach
-
-- **No Duplication**: Single source of truth for all type information
-- **Tight Coupling**: Components share data directly without file I/O
-- **Better Performance**: Eliminates redundant analysis and file generation
-- **Consistent Types**: All generated code uses the same type definitions
-- **Easier Maintenance**: Single plugin to configure and maintain
-
 ## Example Generated Output
 
 ### Generated Client
@@ -272,12 +240,100 @@ const rpcPlugin = new RPCPlugin()
 await rpcPlugin.analyze() // Manually trigger analysis and generation
 ```
 
-## Dependencies
+## Advanced Usage
 
-- **ts-morph**: TypeScript source code analysis
-- **ts-json-schema-generator**: JSON schema generation from TypeScript types
-- **honestjs**: Core framework integration
+### Custom Controller Pattern
 
-## License
+If your controllers follow a different file structure:
 
-MIT
+```typescript
+new RPCPlugin({
+	controllerPattern: 'src/controllers/**/*.controller.ts',
+	outputDir: './src/generated/api'
+})
+```
+
+### Manual Generation Control
+
+Disable automatic generation and control when files are generated:
+
+```typescript
+const rpcPlugin = new RPCPlugin({
+	generateOnInit: false
+})
+
+// Later in your code
+await rpcPlugin.analyze()
+```
+
+## Integration with HonestJS
+
+### Controller Example
+
+Here's how your controllers should be structured for optimal RPC generation:
+
+```typescript
+import { Controller, Post, Get, Body, Param, Query } from 'honestjs'
+
+interface CreateUserDto {
+	name: string
+	email: string
+}
+
+interface ListUsersQuery {
+	page?: number
+	limit?: number
+}
+
+@Controller('/users')
+export class UsersController {
+	@Post('/')
+	async create(@Body() createUserDto: CreateUserDto): Promise<User> {
+		// Implementation
+	}
+
+	@Get('/')
+	async list(@Query() query: ListUsersQuery): Promise<User[]> {
+		// Implementation
+	}
+
+	@Get('/:id')
+	async getById(@Param('id') id: string): Promise<User> {
+		// Implementation
+	}
+}
+```
+
+### Module Registration
+
+Ensure your controllers are properly registered in modules:
+
+```typescript
+import { Module } from 'honestjs'
+import { UsersController } from './users.controller'
+import { UsersService } from './users.service'
+
+@Module({
+	controllers: [UsersController],
+	providers: [UsersService]
+})
+export class UsersModule {}
+```
+
+## Error Handling
+
+The generated client includes comprehensive error handling:
+
+```typescript
+try {
+	const user = await apiClient.users.create({
+		body: { name: 'John', email: 'john@example.com' }
+	})
+} catch (error) {
+	if (error instanceof ApiError) {
+		console.error(`API Error ${error.statusCode}: ${error.message}`)
+	} else {
+		console.error('Unexpected error:', error)
+	}
+}
+```
