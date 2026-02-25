@@ -53,15 +53,6 @@ export class ClientGeneratorService {
 // ============================================================================
 
 /**
- * API Response wrapper
- */
-export interface ApiResponse<T = any> {
-	data: T
-	message?: string
-	success: boolean
-}
-
-/**
  * API Error class
  */
 export class ApiError extends Error {
@@ -173,7 +164,7 @@ export class ApiClient {
 		method: string,
 		path: string,
 		options: RequestOptions<any, any, any, any> = {}
-	): Promise<ApiResponse<T>> {
+	): Promise<T> {
 		const { params, query, body, headers = {} } = options as any
 		
 		// Build the final URL with path parameters
@@ -305,7 +296,7 @@ ${this.generateControllerMethods(controllerGroups)}
 
 				// Extract return type from route analysis for better type safety
 				const returnType = this.extractReturnType(route.returns)
-				methods += `>): Promise<ApiResponse<${returnType}>> => {
+				methods += `>): Promise<${returnType}> => {
 `
 
 				// Build the full API path using route information

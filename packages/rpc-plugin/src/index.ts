@@ -4,7 +4,6 @@ export { RPCPlugin } from './rpc.plugin'
 // Export all types
 export type {
 	ApiError,
-	ApiResponse,
 	ControllerGroups,
 	ExtendedRouteInfo,
 	FetchFunction,
