@@ -204,15 +204,20 @@ expect(mockFetch).toHaveBeenCalledWith('http://test.com/api/v1/users/123', expec
 export class ApiClient {
 	get users() {
 		return {
-			create: async (
+			create: async <Result = User>(
 				options: RequestOptions<{ name: string; email: string }, undefined, undefined, undefined>
-			): Promise<any> => {
-				return this.request('POST', `/api/v1/users/`, options)
+			) => {
+				return this.request<Result>('POST', `/api/v1/users/`, options)
 			},
-			list: async (
+			list: async <Result = User[]>(
 				options?: RequestOptions<undefined, { page: number; limit: number }, undefined, undefined>
-			): Promise<any> => {
-				return this.request('GET', `/api/v1/users/`, options)
+			) => {
+				return this.request<Result>('GET', `/api/v1/users/`, options)
+			},
+			getById: async <Result = User>(
+				options: RequestOptions<undefined, { id: string }, undefined, undefined>
+			) => {
+				return this.request<Result>('GET', `/api/v1/users/:id`, options)
 			}
 		}
 	}
