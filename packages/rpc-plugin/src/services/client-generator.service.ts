@@ -241,13 +241,16 @@ ${this.generateControllerMethods(controllerGroups)}
 				const httpMethod = safeToString(route.method).toLowerCase()
 				const { pathParams, queryParams, bodyParams } = this.analyzeRouteParameters(route)
 
+				// Extract return type from route analysis for better type safety
+				const returnType = this.extractReturnType(route.returns)
+
 				const hasRequiredParams =
 					pathParams.length > 0 ||
 					queryParams.some((p) => p.required) ||
 					(bodyParams.length > 0 && httpMethod !== 'get')
 
 				// Generate the method signature with proper typing
-				methods += `			${methodName}: async (options${hasRequiredParams ? '' : '?'}: RequestOptions<`
+				methods += `			${methodName}: async <Result = ${returnType}>(options${hasRequiredParams ? '' : '?'}: RequestOptions<`
 
 				// Path parameters type
 				if (pathParams.length > 0) {
@@ -294,9 +297,7 @@ ${this.generateControllerMethods(controllerGroups)}
 				// Headers type - always optional for now, but could be made conditional
 				methods += 'undefined'
 
-				// Extract return type from route analysis for better type safety
-				const returnType = this.extractReturnType(route.returns)
-				methods += `>): Promise<${returnType}> => {
+				methods += `>) => {
 `
 
 				// Build the full API path using route information
@@ -311,7 +312,7 @@ ${this.generateControllerMethods(controllerGroups)}
 					}
 				}
 
-				methods += `				return this.request<${returnType}>('${httpMethod.toUpperCase()}', \`${requestPath}\`, options)
+				methods += `				return this.request<Result>('${httpMethod.toUpperCase()}', \`${requestPath}\`, options)
 `
 				methods += `			},
 `
