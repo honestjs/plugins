@@ -35,12 +35,12 @@
 		"directory": "packages/rpc-plugin"
 	},
 	"dependencies": {
-		"ts-json-schema-generator": "^2.4.0",
+		"ts-json-schema-generator": "^2.5.0",
 		"ts-morph": "^26.0.0"
 	},
 	"devDependencies": {
-		"honestjs": "^0.1.5",
-		"hono": "^4.9.4"
+		"honestjs": "^0.1.6",
+		"hono": "^4.12.3"
 	},
 	"peerDependencies": {
 		"honestjs": "^0.1.0",
