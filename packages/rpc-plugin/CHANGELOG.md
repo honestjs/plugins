@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.1.1
+
+### Patch Changes
+
+- 1c46886: Updated dependencies
+
 ## 1.1.0
 
 ### Minor Changes
