@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.2.0
+
+### Minor Changes
+
+- bc51d57: Removed predefined hardcoded ApiResponse
+
 ## 1.1.1
 
 ### Patch Changes
