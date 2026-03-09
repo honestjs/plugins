@@ -6,9 +6,18 @@ import { Project } from 'ts-morph'
 
 import { DEFAULT_OPTIONS, LOG_PREFIX } from './constants/defaults'
 import { ClientGeneratorService } from './services/client-generator.service'
+import { OpenApiGeneratorService, type ResolvedOpenApiOptions } from './services/openapi-generator.service'
 import { RouteAnalyzerService } from './services/route-analyzer.service'
 import { SchemaGeneratorService } from './services/schema-generator.service'
 import type { ExtendedRouteInfo, GeneratedClientInfo, SchemaInfo } from './types'
+
+export interface OpenApiOptions {
+	readonly title?: string
+	readonly version?: string
+	readonly description?: string
+	readonly servers?: readonly { url: string; description?: string }[]
+	readonly outputFile?: string
+}
 
 /**
  * Configuration options for the RPCPlugin
@@ -18,6 +27,7 @@ export interface RPCPluginOptions {
 	readonly tsConfigPath?: string
 	readonly outputDir?: string
 	readonly generateOnInit?: boolean
+	readonly openapi?: OpenApiOptions | boolean
 }
 
 /**
@@ -33,6 +43,8 @@ export class RPCPlugin implements IPlugin {
 	private readonly routeAnalyzer: RouteAnalyzerService
 	private readonly schemaGenerator: SchemaGeneratorService
 	private readonly clientGenerator: ClientGeneratorService
+	private readonly openApiGenerator: OpenApiGeneratorService | null
+	private readonly openApiOptions: ResolvedOpenApiOptions | null
 
 	// Shared ts-morph project
 	private project: Project | null = null
@@ -53,7 +65,25 @@ export class RPCPlugin implements IPlugin {
 		this.schemaGenerator = new SchemaGeneratorService(this.controllerPattern, this.tsConfigPath)
 		this.clientGenerator = new ClientGeneratorService(this.outputDir)
 
+		// Resolve OpenAPI options
+		this.openApiOptions = this.resolveOpenApiOptions(options.openapi)
+		this.openApiGenerator = this.openApiOptions ? new OpenApiGeneratorService(this.outputDir) : null
+
 		this.validateConfiguration()
+	}
+
+	private resolveOpenApiOptions(input?: OpenApiOptions | boolean): ResolvedOpenApiOptions | null {
+		if (!input) return null
+
+		const opts: OpenApiOptions = input === true ? {} : input
+
+		return {
+			title: opts.title ?? 'API',
+			version: opts.version ?? '1.0.0',
+			description: opts.description ?? '',
+			servers: opts.servers ?? [],
+			outputFile: opts.outputFile ?? 'openapi.json'
+		}
 	}
 
 	/**
@@ -121,6 +151,16 @@ export class RPCPlugin implements IPlugin {
 
 			// Step 3: Generate the RPC client
 			this.generatedInfo = await this.clientGenerator.generateClient(this.analyzedRoutes, this.analyzedSchemas)
+
+			// Step 4: Generate OpenAPI spec (if enabled)
+			if (this.openApiGenerator && this.openApiOptions) {
+				const specPath = await this.openApiGenerator.generateSpec(
+					this.analyzedRoutes,
+					this.analyzedSchemas,
+					this.openApiOptions
+				)
+				this.log(`OpenAPI spec generated: ${specPath}`)
+			}
 
 			this.log(
 				`✅ RPC analysis complete: ${this.analyzedRoutes.length} routes, ${this.analyzedSchemas.length} schemas`

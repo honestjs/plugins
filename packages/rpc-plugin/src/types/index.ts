@@ -2,7 +2,7 @@
 export type { ControllerGroups, ExtendedRouteInfo, ParameterMetadataWithType, RouteParameter } from './route.types'
 
 // Export plugin options from the main plugin
-export type { RPCPluginOptions } from '../rpc.plugin'
+export type { OpenApiOptions, RPCPluginOptions } from '../rpc.plugin'
 
 export type { GeneratedClientInfo, SchemaInfo } from './schema.types'
 
