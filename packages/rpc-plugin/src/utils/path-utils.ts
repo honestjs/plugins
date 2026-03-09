@@ -54,5 +54,7 @@ export function buildFullApiPath(route: ExtendedRouteInfo): string {
 		fullPath += '/'
 	}
 
+	if (fullPath && !fullPath.startsWith('/')) fullPath = '/' + fullPath
+
 	return fullPath || '/'
 }

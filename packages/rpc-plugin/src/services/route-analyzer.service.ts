@@ -1,5 +1,6 @@
 import { RouteRegistry, type ParameterMetadata, type RouteInfo } from 'honestjs'
 import { ClassDeclaration, MethodDeclaration, Project } from 'ts-morph'
+import { LOG_PREFIX } from '../constants/defaults'
 import type { ExtendedRouteInfo, ParameterMetadataWithType } from '../types/route.types'
 import { buildFullPath } from '../utils/path-utils'
 import { safeToString } from '../utils/string-utils'
@@ -8,24 +9,15 @@ import { safeToString } from '../utils/string-utils'
  * Service for analyzing controller methods and extracting type information
  */
 export class RouteAnalyzerService {
-	constructor(
-		private readonly controllerPattern: string,
-		private readonly tsConfigPath: string
-	) {}
-
-	// Track projects for cleanup
-	private projects: Project[] = []
-
 	/**
 	 * Analyzes controller methods to extract type information
 	 */
-	async analyzeControllerMethods(): Promise<ExtendedRouteInfo[]> {
+	async analyzeControllerMethods(project: Project): Promise<ExtendedRouteInfo[]> {
 		const routes = RouteRegistry.getRoutes()
 		if (!routes?.length) {
 			return []
 		}
 
-		const project = this.createProject()
 		const controllers = this.findControllerClasses(project)
 
 		if (controllers.size === 0) {
@@ -33,30 +25,6 @@ export class RouteAnalyzerService {
 		}
 
 		return this.processRoutes(routes, controllers)
-	}
-
-	/**
-	 * Creates a new ts-morph project
-	 */
-	private createProject(): Project {
-		const project = new Project({
-			tsConfigFilePath: this.tsConfigPath
-		})
-
-		project.addSourceFilesAtPaths([this.controllerPattern])
-		this.projects.push(project)
-		return project
-	}
-
-	/**
-	 * Cleanup resources to prevent memory leaks
-	 */
-	dispose(): void {
-		this.projects.forEach((project) => {
-			// Remove all source files to free memory
-			project.getSourceFiles().forEach((file) => project.removeSourceFile(file))
-		})
-		this.projects = []
 	}
 
 	/**
@@ -89,25 +57,17 @@ export class RouteAnalyzerService {
 		controllers: Map<string, ClassDeclaration>
 	): ExtendedRouteInfo[] {
 		const analyzedRoutes: ExtendedRouteInfo[] = []
-		const errors: Error[] = []
 
 		for (const route of routes) {
 			try {
 				const extendedRoute = this.createExtendedRoute(route, controllers)
 				analyzedRoutes.push(extendedRoute)
 			} catch (routeError) {
-				const error = routeError instanceof Error ? routeError : new Error(String(routeError))
-				errors.push(error)
-				console.error(
-					`Error processing route ${safeToString(route.controller)}.${safeToString(route.handler)}:`,
+				console.warn(
+					`${LOG_PREFIX} Skipping route ${safeToString(route.controller)}.${safeToString(route.handler)}:`,
 					routeError
 				)
 			}
-		}
-
-		// If there were any errors, throw a comprehensive error
-		if (errors.length > 0) {
-			throw new Error(`Failed to process ${errors.length} routes: ${errors.map((e) => e.message).join(', ')}`)
 		}
 
 		return analyzedRoutes
@@ -175,6 +135,7 @@ export class RouteAnalyzerService {
 
 		for (const param of sortedParams) {
 			const index = param.index
+			const decoratorType = param.name
 
 			if (index < declaredParams.length) {
 				const declaredParam = declaredParams[index]
@@ -187,6 +148,7 @@ export class RouteAnalyzerService {
 				result.push({
 					index,
 					name: paramName,
+					decoratorType,
 					type: paramType,
 					required: true,
 					data: param.data,
@@ -197,6 +159,7 @@ export class RouteAnalyzerService {
 				result.push({
 					index,
 					name: `param${index}`,
+					decoratorType,
 					type: param.metatype?.name || 'unknown',
 					required: true,
 					data: param.data,

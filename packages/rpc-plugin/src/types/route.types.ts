@@ -7,6 +7,8 @@ export interface ParameterMetadataWithType extends ParameterMetadata {
 	readonly type: string
 	readonly required: boolean
 	readonly name: string
+	/** Original decorator kind: 'body', 'param', 'query', 'header', etc. */
+	readonly decoratorType: string
 }
 
 /**

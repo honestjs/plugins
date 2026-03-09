@@ -200,6 +200,14 @@ export class ApiClient {
 
 		try {
 			const response = await this.fetchFn(url.toString(), requestOptions)
+
+			if (response.status === 204 || response.headers.get('content-length') === '0') {
+				if (!response.ok) {
+					throw new ApiError(response.status, 'Request failed')
+				}
+				return undefined as T
+			}
+
 			const responseData = await response.json()
 
 			if (!response.ok) {
@@ -386,32 +394,18 @@ ${this.generateControllerMethods(controllerGroups)}
 		bodyParams: readonly RouteParameter[]
 	} {
 		const parameters = route.parameters || []
-		const method = String(route.method || '').toLowerCase()
 
-		const isInPath = (p: RouteParameter): boolean => {
-			// Check if this parameter corresponds to a path segment
-			// For path parameters, the data field should contain the path segment name
-			const pathSegment = p.data
-			return !!pathSegment && typeof pathSegment === 'string' && route.path.includes(`:${pathSegment}`)
-		}
+		const pathParams = parameters
+			.filter((p) => p.decoratorType === 'param')
+			.map((p) => ({ ...p, required: true }))
 
-		// path params are always required if they exist in the path
-		const pathParams = parameters.filter((p) => isInPath(p)).map((p) => ({ ...p, required: true }))
+		const bodyParams = parameters
+			.filter((p) => p.decoratorType === 'body')
+			.map((p) => ({ ...p, required: true }))
 
-		// body is required if any body param exists for non-GET
-		const rawBody = parameters.filter((p) => !isInPath(p) && method !== 'get')
-		const bodyParams = rawBody.map((p) => ({
-			...p,
-			required: true
-		}))
-
-		// query requiredness comes from analyzer if available; default optional
 		const queryParams = parameters
-			.filter((p) => !isInPath(p) && method === 'get')
-			.map((p) => ({
-				...p,
-				required: p.required === true // default false if not provided
-			}))
+			.filter((p) => p.decoratorType === 'query')
+			.map((p) => ({ ...p, required: p.required === true }))
 
 		return { pathParams, queryParams, bodyParams }
 	}

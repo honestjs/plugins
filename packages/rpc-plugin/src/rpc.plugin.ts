@@ -2,6 +2,7 @@ import fs from 'fs'
 import type { Application, IPlugin } from 'honestjs'
 import type { Hono } from 'hono'
 import path from 'path'
+import { Project } from 'ts-morph'
 
 import { DEFAULT_OPTIONS, LOG_PREFIX } from './constants/defaults'
 import { ClientGeneratorService } from './services/client-generator.service'
@@ -33,6 +34,9 @@ export class RPCPlugin implements IPlugin {
 	private readonly schemaGenerator: SchemaGeneratorService
 	private readonly clientGenerator: ClientGeneratorService
 
+	// Shared ts-morph project
+	private project: Project | null = null
+
 	// Internal state
 	private analyzedRoutes: ExtendedRouteInfo[] = []
 	private analyzedSchemas: SchemaInfo[] = []
@@ -45,7 +49,7 @@ export class RPCPlugin implements IPlugin {
 		this.generateOnInit = options.generateOnInit ?? DEFAULT_OPTIONS.generateOnInit
 
 		// Initialize services
-		this.routeAnalyzer = new RouteAnalyzerService(this.controllerPattern, this.tsConfigPath)
+		this.routeAnalyzer = new RouteAnalyzerService()
 		this.schemaGenerator = new SchemaGeneratorService(this.controllerPattern, this.tsConfigPath)
 		this.clientGenerator = new ClientGeneratorService(this.outputDir)
 
@@ -104,11 +108,16 @@ export class RPCPlugin implements IPlugin {
 			this.analyzedSchemas = []
 			this.generatedInfo = null
 
+			// Create a single shared ts-morph project for both services
+			this.dispose()
+			this.project = new Project({ tsConfigFilePath: this.tsConfigPath })
+			this.project.addSourceFilesAtPaths([this.controllerPattern])
+
 			// Step 1: Analyze routes and extract type information
-			this.analyzedRoutes = await this.routeAnalyzer.analyzeControllerMethods()
+			this.analyzedRoutes = await this.routeAnalyzer.analyzeControllerMethods(this.project)
 
 			// Step 2: Generate schemas from the types we found
-			this.analyzedSchemas = await this.schemaGenerator.generateSchemas()
+			this.analyzedSchemas = await this.schemaGenerator.generateSchemas(this.project)
 
 			// Step 3: Generate the RPC client
 			this.generatedInfo = await this.clientGenerator.generateClient(this.analyzedRoutes, this.analyzedSchemas)
@@ -118,7 +127,6 @@ export class RPCPlugin implements IPlugin {
 			)
 		} catch (error) {
 			this.logError('Error during RPC analysis:', error)
-			// Ensure cleanup happens even on error
 			this.dispose()
 			throw error
 		}
@@ -156,9 +164,10 @@ export class RPCPlugin implements IPlugin {
 	 * Cleanup resources to prevent memory leaks
 	 */
 	dispose(): void {
-		this.routeAnalyzer.dispose()
-		this.schemaGenerator.dispose()
-		this.log('Resources cleaned up')
+		if (this.project) {
+			this.project.getSourceFiles().forEach((file) => this.project!.removeSourceFile(file))
+			this.project = null
+		}
 	}
 
 	// ============================================================================

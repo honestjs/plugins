@@ -1,15 +1,11 @@
 /**
  * Clean separation of concerns for request options
  */
-export type RequestOptions<TParams = never, TQuery = never, TBody = never, THeaders = never> =
-	// params
-	(TParams extends never ? { params?: never } : { params: TParams }) &
-		// query
-		(TQuery extends never ? { query?: never } : { query?: TQuery }) &
-		// body
-		(TBody extends never ? { body?: never } : { body: TBody }) &
-		// headers
-		(THeaders extends never ? { headers?: never } : { headers: THeaders })
+export type RequestOptions<TParams = undefined, TQuery = undefined, TBody = undefined, THeaders = undefined> =
+	(TParams extends undefined ? object : { params: TParams }) &
+		(TQuery extends undefined ? object : { query: TQuery }) &
+		(TBody extends undefined ? object : { body: TBody }) &
+		(THeaders extends undefined ? object : { headers: THeaders })
 
 /**
  * Custom fetch function type that matches the standard fetch API

@@ -13,42 +13,14 @@ export class SchemaGeneratorService {
 		private readonly tsConfigPath: string
 	) {}
 
-	// Track projects for cleanup
-	private projects: Project[] = []
-
 	/**
 	 * Generates JSON schemas from types used in controllers
 	 */
-	async generateSchemas(): Promise<SchemaInfo[]> {
-		const project = this.createProject()
+	async generateSchemas(project: Project): Promise<SchemaInfo[]> {
 		const sourceFiles = project.getSourceFiles(this.controllerPattern)
 
 		const collectedTypes = this.collectTypesFromControllers(sourceFiles)
 		return this.processTypes(collectedTypes)
-	}
-
-	/**
-	 * Creates a new ts-morph project
-	 */
-	private createProject(): Project {
-		const project = new Project({
-			tsConfigFilePath: this.tsConfigPath
-		})
-
-		project.addSourceFilesAtPaths([this.controllerPattern])
-		this.projects.push(project)
-		return project
-	}
-
-	/**
-	 * Cleanup resources to prevent memory leaks
-	 */
-	dispose(): void {
-		this.projects.forEach((project) => {
-			// Remove all source files to free memory
-			project.getSourceFiles().forEach((file) => project.removeSourceFile(file))
-		})
-		this.projects = []
 	}
 
 	/**
