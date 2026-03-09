@@ -32,10 +32,27 @@ interface RPCPluginOptions {
 	readonly tsConfigPath?: string // Path to tsconfig.json (default: 'tsconfig.json')
 	readonly outputDir?: string // Output directory for generated files (default: './generated/rpc')
 	readonly generateOnInit?: boolean // Generate files on initialization (default: true)
+	readonly openapi?: OpenApiOptions | boolean // Enable OpenAPI spec generation (default: false)
+}
+
+interface OpenApiOptions {
+	readonly title?: string // API title (default: 'API')
+	readonly version?: string // API version (default: '1.0.0')
+	readonly description?: string // API description (default: '')
+	readonly servers?: readonly { url: string; description?: string }[] // Server list
+	readonly outputFile?: string // Output filename (default: 'openapi.json')
 }
 ```
 
 ## What It Generates
+
+The plugin generates files in the output directory (default: `./generated/rpc`):
+
+| File            | Description                                  | When generated        |
+| --------------- | -------------------------------------------- | --------------------- |
+| `client.ts`     | Type-safe RPC client with all DTOs           | Always                |
+| `openapi.json`  | OpenAPI 3.0.3 specification                  | When `openapi` is set |
+| `.rpc-checksum` | Hash of source files for incremental caching | Always                |
 
 ### TypeScript RPC Client (`client.ts`)
 
@@ -173,6 +190,67 @@ const testApiClient = new ApiClient('http://test.com', {
 expect(mockFetch).toHaveBeenCalledWith('http://test.com/api/v1/users/123', expect.objectContaining({ method: 'GET' }))
 ```
 
+## OpenAPI Spec Generation
+
+The plugin can produce an OpenAPI 3.0.3 JSON specification alongside the client. This is useful for Swagger UI, documentation portals, and third-party integrations. No extra dependencies are needed — the spec is built from the same route and schema data used for client generation.
+
+### Enable with defaults
+
+Pass `true` to use all default values:
+
+```typescript
+new RPCPlugin({
+	openapi: true
+})
+```
+
+### Custom options
+
+```typescript
+new RPCPlugin({
+	openapi: {
+		title: 'My Service API',
+		version: '2.1.0',
+		description: 'User management service',
+		servers: [
+			{ url: 'https://api.example.com', description: 'Production' },
+			{ url: 'http://localhost:3000', description: 'Local' }
+		],
+		outputFile: 'api-spec.json'
+	}
+})
+```
+
+The generated spec includes:
+
+- **Paths** derived from your controller routes
+- **Parameters** (path, query) with correct types
+- **Request bodies** referencing component schemas for DTOs
+- **Responses** with schema references and array type support
+- **Component schemas** extracted from `ts-json-schema-generator` output
+- **Tags** derived from controller names
+
+## Hash-based Caching
+
+On startup the plugin hashes all controller source files (SHA-256) and stores the checksum in `.rpc-checksum` inside the output directory. On subsequent runs, if the hash matches and the expected output files already exist, the expensive analysis and generation pipeline is skipped entirely. This significantly reduces startup time in large projects.
+
+Caching is automatic and requires no configuration. To force regeneration:
+
+```typescript
+// Manual call — defaults to force=true, always regenerates
+await rpcPlugin.analyze()
+
+// Explicit cache bypass
+await rpcPlugin.analyze(true)
+
+// Respect the cache (same behavior as automatic startup)
+await rpcPlugin.analyze(false)
+```
+
+You can also delete `.rpc-checksum` from the output directory to clear the cache.
+
+> **Note:** The hash covers controller files matched by the `controllerPattern` glob. If you only change a DTO/model file that lives outside that pattern, the cache won't invalidate automatically. Use `analyze()` or delete `.rpc-checksum` in that case.
+
 ## How It Works
 
 ### 1. Route Analysis
@@ -195,6 +273,19 @@ expect(mockFetch).toHaveBeenCalledWith('http://test.com/api/v1/users/123', expec
 - Generates type-safe method signatures
 - Creates parameter validation and typing
 - Builds the complete RPC client with proper error handling
+
+### 4. OpenAPI Generation (optional)
+
+- Converts route and schema data to OpenAPI 3.0.3 paths and components
+- Maps `@Param()`, `@Query()`, and `@Body()` decorators to the correct OpenAPI parameter locations
+- References component schemas via `$ref` for DTOs
+- Outputs a single JSON file ready for Swagger UI or any OpenAPI-compatible tool
+
+### 5. Incremental Caching
+
+- Hashes all matched controller files after glob resolution
+- Compares against the stored `.rpc-checksum`
+- Skips steps 1–4 when files are unchanged and output already exists
 
 ## Example Generated Output
 
@@ -237,12 +328,15 @@ export type RequestOptions<
 
 ## Plugin Lifecycle
 
-The plugin automatically generates files when your HonestJS application starts up (if `generateOnInit` is true). You can
-also manually trigger generation:
+The plugin automatically generates files when your HonestJS application starts up (if `generateOnInit` is true). On
+subsequent startups, the hash-based cache will skip regeneration if controller files haven't changed.
+
+You can also manually trigger generation:
 
 ```typescript
 const rpcPlugin = new RPCPlugin()
-await rpcPlugin.analyze() // Manually trigger analysis and generation
+await rpcPlugin.analyze() // Force regeneration (bypasses cache)
+await rpcPlugin.analyze(false) // Respect cache
 ```
 
 ## Advanced Usage
