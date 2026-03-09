@@ -5,6 +5,7 @@ import path from 'path'
 import { Project } from 'ts-morph'
 
 import { DEFAULT_OPTIONS, LOG_PREFIX } from './constants/defaults'
+import { computeHash, readChecksum, writeChecksum } from './utils/hash-utils'
 import { ClientGeneratorService } from './services/client-generator.service'
 import { OpenApiGeneratorService, type ResolvedOpenApiOptions } from './services/openapi-generator.service'
 import { RouteAnalyzerService } from './services/route-analyzer.service'
@@ -129,7 +130,7 @@ export class RPCPlugin implements IPlugin {
 	/**
 	 * Main analysis method that coordinates all three components
 	 */
-	private async analyzeEverything(): Promise<void> {
+	private async analyzeEverything(force = false): Promise<void> {
 		try {
 			this.log('Starting comprehensive RPC analysis...')
 
@@ -142,6 +143,20 @@ export class RPCPlugin implements IPlugin {
 			this.dispose()
 			this.project = new Project({ tsConfigFilePath: this.tsConfigPath })
 			this.project.addSourceFilesAtPaths([this.controllerPattern])
+
+			// Hash check: skip if controller files are unchanged since last generation
+			const filePaths = this.project.getSourceFiles().map((f) => f.getFilePath())
+
+			if (!force) {
+				const currentHash = computeHash(filePaths)
+				const stored = readChecksum(this.outputDir)
+
+				if (stored && stored.hash === currentHash && this.outputFilesExist()) {
+					this.log('Source files unchanged — skipping regeneration')
+					this.dispose()
+					return
+				}
+			}
 
 			// Step 1: Analyze routes and extract type information
 			this.analyzedRoutes = await this.routeAnalyzer.analyzeControllerMethods(this.project)
@@ -162,6 +177,9 @@ export class RPCPlugin implements IPlugin {
 				this.log(`OpenAPI spec generated: ${specPath}`)
 			}
 
+			// Write checksum after successful generation
+			await writeChecksum(this.outputDir, { hash: computeHash(filePaths), files: filePaths })
+
 			this.log(
 				`✅ RPC analysis complete: ${this.analyzedRoutes.length} routes, ${this.analyzedSchemas.length} schemas`
 			)
@@ -173,10 +191,11 @@ export class RPCPlugin implements IPlugin {
 	}
 
 	/**
-	 * Manually trigger analysis (useful for testing or re-generation)
+	 * Manually trigger analysis (useful for testing or re-generation).
+	 * Defaults to force=true to bypass cache; pass false to use caching.
 	 */
-	async analyze(): Promise<void> {
-		await this.analyzeEverything()
+	async analyze(force = true): Promise<void> {
+		await this.analyzeEverything(force)
 	}
 
 	/**
@@ -198,6 +217,17 @@ export class RPCPlugin implements IPlugin {
 	 */
 	getGenerationInfo(): GeneratedClientInfo | null {
 		return this.generatedInfo
+	}
+
+	/**
+	 * Checks whether expected output files exist on disk
+	 */
+	private outputFilesExist(): boolean {
+		if (!fs.existsSync(path.join(this.outputDir, 'client.ts'))) return false
+		if (this.openApiOptions) {
+			return fs.existsSync(path.join(this.outputDir, this.openApiOptions.outputFile))
+		}
+		return true
 	}
 
 	/**
