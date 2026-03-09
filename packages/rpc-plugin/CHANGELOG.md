@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.3.0
+
+### Minor Changes
+
+- e3928fe: Added OpenAPI support
+
 ## 1.2.0
 
 ### Minor Changes
