@@ -1,6 +1,6 @@
 {
 	"name": "@honestjs/api-docs-plugin",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "API Docs plugin for HonestJS - generates OpenAPI from artifact object or context key and serves Swagger UI",
 	"main": "./dist/index.js",
 	"module": "./dist/index.mjs",

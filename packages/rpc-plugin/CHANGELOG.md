@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.4.1
+
+### Patch Changes
+
+- 07baee2: Fix full path generation.
+
 ## 1.4.0
 
 ### Minor Changes
