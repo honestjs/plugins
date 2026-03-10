@@ -83,7 +83,10 @@ export function fromArtifactSync(
 	}
 
 	for (const route of artifact.routes) {
-		const routePath = route.fullPath || buildFallbackPath(route)
+		const routePath =
+			route.prefix != null || route.version != null || route.route != null
+				? buildFallbackPath(route)
+				: (route.fullPath || buildFallbackPath(route))
 		const openApiPath = toOpenApiPath(routePath)
 		const method = route.method.toLowerCase() as keyof OpenAPIV3.PathItemObject
 		if (!spec.paths[openApiPath]) {

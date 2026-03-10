@@ -2,7 +2,7 @@ import { RouteRegistry, type ParameterMetadata, type RouteInfo } from 'honestjs'
 import { ClassDeclaration, MethodDeclaration, Project } from 'ts-morph'
 import { LOG_PREFIX } from '../constants/defaults'
 import type { ExtendedRouteInfo, ParameterMetadataWithType } from '../types/route.types'
-import { buildFullPath } from '../utils/path-utils'
+import { buildFullApiPath } from '../utils/path-utils'
 import { safeToString } from '../utils/string-utils'
 
 /**
@@ -101,7 +101,7 @@ export class RouteAnalyzerService {
 			version: route.version,
 			route: route.route,
 			path: route.path,
-			fullPath: buildFullPath(route.path, route.parameters),
+			fullPath: buildFullApiPath(route),
 			parameters,
 			returns
 		}

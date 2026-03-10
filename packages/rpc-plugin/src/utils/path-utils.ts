@@ -1,6 +1,9 @@
 import type { ParameterMetadata } from 'honestjs'
 import type { ExtendedRouteInfo } from '../types/route.types'
 
+/** Minimal route shape needed to build the full API path (prefix + version + route + path). */
+export type RoutePathInput = Pick<ExtendedRouteInfo, 'prefix' | 'version' | 'route' | 'path'>
+
 /**
  * Builds the full path with parameter placeholders
  */
@@ -24,7 +27,7 @@ export function buildFullPath(basePath: string, parameters: readonly ParameterMe
 /**
  * Builds the full API path using route information
  */
-export function buildFullApiPath(route: ExtendedRouteInfo): string {
+export function buildFullApiPath(route: RoutePathInput): string {
 	const prefix = route.prefix || ''
 	const version = route.version || ''
 	const routePath = route.route || ''
