@@ -5,11 +5,11 @@ import path from 'path'
 import { Project } from 'ts-morph'
 
 import { DEFAULT_OPTIONS, LOG_PREFIX } from './constants/defaults'
+import { TypeScriptClientGenerator } from './generators'
 import { computeHash, readChecksum, writeChecksum } from './utils/hash-utils'
-import { ClientGeneratorService } from './services/client-generator.service'
 import { RouteAnalyzerService } from './services/route-analyzer.service'
 import { SchemaGeneratorService } from './services/schema-generator.service'
-import type { ExtendedRouteInfo, GeneratedClientInfo, SchemaInfo } from './types'
+import type { ExtendedRouteInfo, GeneratedClientInfo, RPCGenerator, SchemaInfo } from './types'
 
 /**
  * Configuration options for the RPCPlugin
@@ -19,6 +19,7 @@ export interface RPCPluginOptions {
 	readonly tsConfigPath?: string
 	readonly outputDir?: string
 	readonly generateOnInit?: boolean
+	readonly generators?: readonly RPCGenerator[]
 	readonly context?: {
 		readonly namespace?: string
 		readonly keys?: {
@@ -41,7 +42,7 @@ export class RPCPlugin implements IPlugin {
 	// Services
 	private readonly routeAnalyzer: RouteAnalyzerService
 	private readonly schemaGenerator: SchemaGeneratorService
-	private readonly clientGenerator: ClientGeneratorService
+	private readonly generators: readonly RPCGenerator[]
 
 	// Shared ts-morph project
 	private project: Project | null = null
@@ -49,7 +50,7 @@ export class RPCPlugin implements IPlugin {
 	// Internal state
 	private analyzedRoutes: ExtendedRouteInfo[] = []
 	private analyzedSchemas: SchemaInfo[] = []
-	private generatedInfo: GeneratedClientInfo | null = null
+	private generatedInfos: GeneratedClientInfo[] = []
 	private app: Application | null = null
 
 	constructor(options: RPCPluginOptions = {}) {
@@ -63,7 +64,7 @@ export class RPCPlugin implements IPlugin {
 		// Initialize services
 		this.routeAnalyzer = new RouteAnalyzerService()
 		this.schemaGenerator = new SchemaGeneratorService(this.controllerPattern, this.tsConfigPath)
-		this.clientGenerator = new ClientGeneratorService(this.outputDir)
+		this.generators = options.generators ?? [new TypeScriptClientGenerator(this.outputDir)]
 
 		this.validateConfiguration()
 	}
@@ -94,6 +95,14 @@ export class RPCPlugin implements IPlugin {
 		}
 		if (!this.contextArtifactKey?.trim()) {
 			errors.push('Context artifact key cannot be empty')
+		}
+		for (const generator of this.generators) {
+			if (!generator.name?.trim()) {
+				errors.push('Generator name cannot be empty')
+			}
+			if (typeof generator.generate !== 'function') {
+				errors.push(`Generator "${generator.name || 'unknown'}" must implement generate(context)`)
+			}
 		}
 
 		if (errors.length > 0) {
@@ -148,7 +157,7 @@ export class RPCPlugin implements IPlugin {
 			// Clear previous analysis results to prevent stale state across runs
 			this.analyzedRoutes = []
 			this.analyzedSchemas = []
-			this.generatedInfo = null
+			this.generatedInfos = []
 
 			// Step 1: Analyze routes and extract type information
 			this.analyzedRoutes = await this.routeAnalyzer.analyzeControllerMethods(this.project)
@@ -156,8 +165,8 @@ export class RPCPlugin implements IPlugin {
 			// Step 2: Generate schemas from the types we found
 			this.analyzedSchemas = await this.schemaGenerator.generateSchemas(this.project)
 
-			// Step 3: Generate the RPC client
-			this.generatedInfo = await this.clientGenerator.generateClient(this.analyzedRoutes, this.analyzedSchemas)
+			// Step 3: Run configured generators
+			this.generatedInfos = await this.runGenerators()
 
 			// Write checksum after successful generation
 			await writeChecksum(this.outputDir, { hash: computeHash(filePaths), files: filePaths })
@@ -202,17 +211,27 @@ export class RPCPlugin implements IPlugin {
 	 * Get the generation info
 	 */
 	getGenerationInfo(): GeneratedClientInfo | null {
-		return this.generatedInfo
+		return this.generatedInfos[0] ?? null
+	}
+
+	/**
+	 * Get all generation infos
+	 */
+	getGenerationInfos(): readonly GeneratedClientInfo[] {
+		return this.generatedInfos
 	}
 
 	/**
 	 * Checks whether expected output files exist on disk
 	 */
 	private outputFilesExist(): boolean {
-		return (
-			fs.existsSync(path.join(this.outputDir, 'client.ts')) &&
-			fs.existsSync(path.join(this.outputDir, 'rpc-artifact.json'))
-		)
+		if (!fs.existsSync(path.join(this.outputDir, 'rpc-artifact.json'))) {
+			return false
+		}
+		if (!this.hasTypeScriptGenerator()) {
+			return true
+		}
+		return fs.existsSync(path.join(this.outputDir, 'client.ts'))
 	}
 
 	private getArtifactPath(): string {
@@ -240,11 +259,29 @@ export class RPCPlugin implements IPlugin {
 			}
 			this.analyzedRoutes = parsed.routes as ExtendedRouteInfo[]
 			this.analyzedSchemas = parsed.schemas as SchemaInfo[]
-			this.generatedInfo = null
+			this.generatedInfos = []
 			return true
 		} catch {
 			return false
 		}
+	}
+
+	private async runGenerators(): Promise<GeneratedClientInfo[]> {
+		const results: GeneratedClientInfo[] = []
+		for (const generator of this.generators) {
+			this.log(`Running generator: ${generator.name}`)
+			const result = await generator.generate({
+				outputDir: this.outputDir,
+				routes: this.analyzedRoutes,
+				schemas: this.analyzedSchemas
+			})
+			results.push(result)
+		}
+		return results
+	}
+
+	private hasTypeScriptGenerator(): boolean {
+		return this.generators.some((generator) => generator.name === 'typescript-client')
 	}
 
 	private publishArtifact(app: Application): void {

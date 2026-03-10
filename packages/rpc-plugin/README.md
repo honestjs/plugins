@@ -1,7 +1,7 @@
 # RPC Plugin
 
-The RPC Plugin automatically analyzes your HonestJS controllers and generates a fully-typed TypeScript RPC client with
-proper parameter typing.
+The RPC Plugin automatically analyzes your HonestJS controllers and, by default, generates a fully-typed TypeScript RPC
+client with proper parameter typing. You can also provide custom generators.
 
 ## Installation
 
@@ -35,6 +35,7 @@ interface RPCPluginOptions {
 	readonly tsConfigPath?: string // Path to tsconfig.json (default: 'tsconfig.json')
 	readonly outputDir?: string // Output directory for generated files (default: './generated/rpc')
 	readonly generateOnInit?: boolean // Generate files on initialization (default: true)
+	readonly generators?: readonly RPCGenerator[] // Optional list of generators to execute
 	readonly context?: {
 		readonly namespace?: string // Default: 'rpc'
 		readonly keys?: {
@@ -42,6 +43,20 @@ interface RPCPluginOptions {
 		}
 	}
 }
+```
+
+### Generator Behavior
+
+- If `generators` is omitted, the plugin uses the built-in `TypeScriptClientGenerator` by default.
+- If `generators` is provided, only those generators are executed.
+- You can still use the built-in TypeScript client generator explicitly:
+
+```typescript
+import { RPCPlugin, TypeScriptClientGenerator } from '@honestjs/rpc-plugin'
+
+new RPCPlugin({
+	generators: [new TypeScriptClientGenerator('./generated/rpc')]
+})
 ```
 
 ## Application Context Artifact
@@ -71,7 +86,7 @@ The plugin generates files in the output directory (default: `./generated/rpc`):
 
 | File            | Description                                  | When generated        |
 | --------------- | -------------------------------------------- | --------------------- |
-| `client.ts`     | Type-safe RPC client with all DTOs           | Always                |
+| `client.ts`     | Type-safe RPC client with all DTOs           | When TypeScript generator runs |
 | `.rpc-checksum` | Hash of source files for incremental caching | Always                |
 | `rpc-artifact.json` | Serialized routes/schemas artifact for cache-backed context publishing | Always |
 

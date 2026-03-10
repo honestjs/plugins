@@ -16,7 +16,7 @@ export type {
 } from './types'
 
 // Export services for advanced usage
-export { ClientGeneratorService } from './services/client-generator.service'
+export { TypeScriptClientGenerator } from './generators'
 export { RouteAnalyzerService } from './services/route-analyzer.service'
 export { SchemaGeneratorService } from './services/schema-generator.service'
 

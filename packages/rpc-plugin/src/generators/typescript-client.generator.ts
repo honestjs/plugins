@@ -1,18 +1,28 @@
 import fs from 'fs/promises'
 import path from 'path'
 import type { ControllerGroups, ExtendedRouteInfo, RouteParameter } from '../types/route.types'
+import type { RPCGenerator, RPCGeneratorContext } from '../types/generator.types'
 import type { GeneratedClientInfo, SchemaInfo } from '../types/schema.types'
 import { buildFullApiPath } from '../utils/path-utils'
 import { camelCase, safeToString } from '../utils/string-utils'
 
 /**
- * Service for generating TypeScript RPC clients
+ * Built-in generator for TypeScript RPC clients.
  */
-export class ClientGeneratorService {
+export class TypeScriptClientGenerator implements RPCGenerator {
+	readonly name = 'typescript-client'
+
 	constructor(private readonly outputDir: string) {}
 
 	/**
-	 * Generates the TypeScript RPC client
+	 * Generates the TypeScript RPC client.
+	 */
+	async generate(context: RPCGeneratorContext): Promise<GeneratedClientInfo> {
+		return this.generateClient(context.routes, context.schemas)
+	}
+
+	/**
+	 * Generates the TypeScript RPC client.
 	 */
 	async generateClient(
 		routes: readonly ExtendedRouteInfo[],
@@ -23,7 +33,9 @@ export class ClientGeneratorService {
 		await this.generateClientFile(routes, schemas)
 
 		const generatedInfo: GeneratedClientInfo = {
+			generator: this.name,
 			clientFile: path.join(this.outputDir, 'client.ts'),
+			outputFiles: [path.join(this.outputDir, 'client.ts')],
 			generatedAt: new Date().toISOString()
 		}
 
@@ -31,7 +43,7 @@ export class ClientGeneratorService {
 	}
 
 	/**
-	 * Generates the main client file with types included
+	 * Generates the main client file with types included.
 	 */
 	private async generateClientFile(
 		routes: readonly ExtendedRouteInfo[],
@@ -43,7 +55,7 @@ export class ClientGeneratorService {
 	}
 
 	/**
-	 * Generates the client TypeScript content with types included
+	 * Generates the client TypeScript content with types included.
 	 */
 	private generateClientContent(routes: readonly ExtendedRouteInfo[], schemas: readonly SchemaInfo[]): string {
 		const controllerGroups = this.groupRoutesByController(routes)
@@ -229,7 +241,7 @@ ${this.generateControllerMethods(controllerGroups)}
 	}
 
 	/**
-	 * Generates controller methods for the client
+	 * Generates controller methods for the client.
 	 */
 	private generateControllerMethods(controllerGroups: ControllerGroups): string {
 		let methods = ''
@@ -336,7 +348,7 @@ ${this.generateControllerMethods(controllerGroups)}
 	}
 
 	/**
-	 * Extracts the proper return type from route analysis
+	 * Extracts the proper return type from route analysis.
 	 */
 	private extractReturnType(returns?: string): string {
 		if (!returns) return 'any'
@@ -352,7 +364,7 @@ ${this.generateControllerMethods(controllerGroups)}
 	}
 
 	/**
-	 * Generates schema types from integrated schema generation
+	 * Generates schema types from integrated schema generation.
 	 */
 	private generateSchemaTypes(schemas: readonly SchemaInfo[]): string {
 		if (schemas.length === 0) {
@@ -369,7 +381,7 @@ ${this.generateControllerMethods(controllerGroups)}
 	}
 
 	/**
-	 * Groups routes by controller for better organization
+	 * Groups routes by controller for better organization.
 	 */
 	private groupRoutesByController(routes: readonly ExtendedRouteInfo[]): ControllerGroups {
 		const groups = new Map<string, ExtendedRouteInfo[]>()
@@ -386,7 +398,7 @@ ${this.generateControllerMethods(controllerGroups)}
 	}
 
 	/**
-	 * Analyzes route parameters to determine their types and usage
+	 * Analyzes route parameters to determine their types and usage.
 	 */
 	private analyzeRouteParameters(route: ExtendedRouteInfo): {
 		pathParams: readonly RouteParameter[]

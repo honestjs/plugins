@@ -1,10 +1,22 @@
+import fs from 'fs'
+import os from 'os'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RPCPlugin } from './rpc.plugin'
+import type { RPCGenerator } from './types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validTsConfigPath = path.join(__dirname, '..', 'tsconfig.json')
+const tempDirs: string[] = []
+
+afterEach(() => {
+	for (const dir of tempDirs.splice(0)) {
+		if (fs.existsSync(dir)) {
+			fs.rmSync(dir, { recursive: true, force: true })
+		}
+	}
+})
 
 describe('RPCPlugin', () => {
 	describe('constructor', () => {
@@ -91,6 +103,35 @@ describe('RPCPlugin', () => {
 					})
 			).not.toThrow()
 		})
+
+		it('uses default TypeScript generator when generators option is omitted', () => {
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated')
+			})
+
+			expect((plugin as any).generators).toHaveLength(1)
+			expect((plugin as any).generators[0]?.name).toBe('typescript-client')
+		})
+
+		it('uses only explicitly provided generators when generators array is defined', () => {
+			const customGenerator: RPCGenerator = {
+				name: 'custom-generator',
+				generate: vi.fn(async () => ({
+					generator: 'custom-generator',
+					generatedAt: new Date().toISOString(),
+					outputFiles: []
+				}))
+			}
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated'),
+				generators: [customGenerator]
+			})
+
+			expect((plugin as any).generators).toHaveLength(1)
+			expect((plugin as any).generators[0]?.name).toBe('custom-generator')
+		})
 	})
 
 	describe('context artifact publishing', () => {
@@ -156,6 +197,50 @@ describe('RPCPlugin', () => {
 				routes: [{ fullPath: '/users' }],
 				schemas: [{ type: 'UserDto', schema: { type: 'object' } }]
 			})
+		})
+	})
+
+	describe('generators', () => {
+		it('runs only explicitly provided generators', async () => {
+			const generate = vi.fn(async () => ({
+				generator: 'custom-generator',
+				generatedAt: new Date().toISOString(),
+				outputFiles: []
+			}))
+			const customGenerator: RPCGenerator = {
+				name: 'custom-generator',
+				generate
+			}
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated'),
+				generators: [customGenerator]
+			})
+
+			;(plugin as any).analyzedRoutes = []
+			;(plugin as any).analyzedSchemas = []
+			const results = await (plugin as any).runGenerators()
+
+			expect(generate).toHaveBeenCalledTimes(1)
+			expect(results).toHaveLength(1)
+			expect(results[0]?.generator).toBe('custom-generator')
+		})
+
+		it('uses TypeScript generator by default when generators are not provided', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir
+			})
+
+			;(plugin as any).analyzedRoutes = []
+			;(plugin as any).analyzedSchemas = []
+			const results = await (plugin as any).runGenerators()
+
+			expect(results).toHaveLength(1)
+			expect(results[0]?.generator).toBe('typescript-client')
+			expect(fs.existsSync(path.join(outputDir, 'client.ts'))).toBe(true)
 		})
 	})
 })

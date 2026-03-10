@@ -2,7 +2,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { ClientGeneratorService } from './client-generator.service'
+import { TypeScriptClientGenerator } from './typescript-client.generator'
 import type { ExtendedRouteInfo } from '../types/route.types'
 import type { SchemaInfo } from '../types/schema.types'
 
@@ -44,7 +44,7 @@ const mockSchema: SchemaInfo = {
 	}
 }
 
-describe('ClientGeneratorService', () => {
+describe('TypeScriptClientGenerator', () => {
 	let outputDir: string
 
 	afterEach(() => {
@@ -55,12 +55,13 @@ describe('ClientGeneratorService', () => {
 
 	it('returns correct shape with clientFile and generatedAt', async () => {
 		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
-		const service = new ClientGeneratorService(outputDir)
+		const service = new TypeScriptClientGenerator(outputDir)
 
 		const result = await service.generateClient([mockRoute], [mockSchema])
 
 		expect(result).toHaveProperty('clientFile')
 		expect(result.clientFile).toMatch(/client\.ts$/)
+		expect(result.generator).toBe('typescript-client')
 		expect(result).toHaveProperty('generatedAt')
 		expect(result.generatedAt).toMatch(
 			/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
@@ -69,17 +70,19 @@ describe('ClientGeneratorService', () => {
 
 	it('writes client file to outputDir', async () => {
 		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
-		const service = new ClientGeneratorService(outputDir)
+		const service = new TypeScriptClientGenerator(outputDir)
 
 		const result = await service.generateClient([mockRoute], [mockSchema])
 
-		expect(fs.existsSync(result.clientFile)).toBe(true)
-		expect(result.clientFile).toBe(path.join(outputDir, 'client.ts'))
+		expect(result.clientFile).toBeDefined()
+		const clientFile = result.clientFile as string
+		expect(fs.existsSync(clientFile)).toBe(true)
+		expect(clientFile).toBe(path.join(outputDir, 'client.ts'))
 	})
 
 	it('generated content includes ApiError and RequestOptions', async () => {
 		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
-		const service = new ClientGeneratorService(outputDir)
+		const service = new TypeScriptClientGenerator(outputDir)
 
 		await service.generateClient([mockRoute], [mockSchema])
 
@@ -90,7 +93,7 @@ describe('ClientGeneratorService', () => {
 
 	it('generated content includes route path and handler', async () => {
 		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
-		const service = new ClientGeneratorService(outputDir)
+		const service = new TypeScriptClientGenerator(outputDir)
 
 		await service.generateClient([mockRoute], [mockSchema])
 

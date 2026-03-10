@@ -8,9 +8,11 @@ export interface SchemaInfo {
 }
 
 /**
- * Generated client file information
+ * Generated output information for one generator run.
  */
 export interface GeneratedClientInfo {
-	readonly clientFile: string
+	readonly generator: string
+	readonly clientFile?: string
+	readonly outputFiles?: readonly string[]
 	readonly generatedAt: string
 }
