@@ -8,7 +8,6 @@ export type {
 	ExtendedRouteInfo,
 	FetchFunction,
 	GeneratedClientInfo,
-	OpenApiOptions,
 	ParameterMetadataWithType,
 	RequestOptions,
 	RouteParameter,
@@ -18,7 +17,6 @@ export type {
 
 // Export services for advanced usage
 export { ClientGeneratorService } from './services/client-generator.service'
-export { OpenApiGeneratorService } from './services/openapi-generator.service'
 export { RouteAnalyzerService } from './services/route-analyzer.service'
 export { SchemaGeneratorService } from './services/schema-generator.service'
 

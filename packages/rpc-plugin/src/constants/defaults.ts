@@ -5,7 +5,13 @@ export const DEFAULT_OPTIONS = {
 	controllerPattern: 'src/modules/*/*.controller.ts',
 	tsConfigPath: 'tsconfig.json',
 	outputDir: './generated/rpc',
-	generateOnInit: true
+	generateOnInit: true,
+	context: {
+		namespace: 'rpc',
+		keys: {
+			artifact: 'artifact'
+		}
+	}
 } as const
 
 /**

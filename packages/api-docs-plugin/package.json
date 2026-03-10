@@ -1,7 +1,7 @@
 {
-	"name": "@honestjs/rpc-plugin",
-	"version": "1.3.0",
-	"description": "RPC plugin for HonestJS framework",
+	"name": "@honestjs/api-docs-plugin",
+	"version": "0.0.0",
+	"description": "API Docs plugin for HonestJS - generates OpenAPI from artifact object or context key and serves Swagger UI",
 	"main": "./dist/index.js",
 	"module": "./dist/index.mjs",
 	"types": "./dist/index.d.ts",
@@ -21,29 +21,31 @@
 		"clean": "rm -rf dist",
 		"type-check": "tsc --noEmit",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"prepack": "pnpm run build"
 	},
 	"keywords": [
 		"honestjs",
 		"hono",
-		"nestjs",
-		"plugins"
+		"swagger",
+		"openapi",
+		"api-docs"
 	],
 	"author": "Orkhan Karimov <karimovok1@gmail.com> (https://github.com/kerimovok)",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/honestjs/plugins.git",
-		"directory": "packages/rpc-plugin"
-	},
-	"dependencies": {
-		"ts-json-schema-generator": "^2.9.0",
-		"ts-morph": "^26.0.0"
+		"directory": "packages/api-docs-plugin"
 	},
 	"devDependencies": {
 		"honestjs": "^0.1.9",
 		"hono": "^4.12.6",
+		"reflect-metadata": "^0.2.2",
 		"vitest": "^3.2.4"
+	},
+	"dependencies": {
+		"openapi-types": "^12.1.3"
 	},
 	"peerDependencies": {
 		"honestjs": "^0.1.9",
