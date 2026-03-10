@@ -9,6 +9,8 @@ export type {
 	FetchFunction,
 	GeneratedClientInfo,
 	ParameterMetadataWithType,
+	RPCGenerator,
+	RPCGeneratorContext,
 	RequestOptions,
 	RouteParameter,
 	RPCPluginOptions,

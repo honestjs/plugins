@@ -3,8 +3,8 @@ import path from 'path'
 import type { ControllerGroups, ExtendedRouteInfo, RouteParameter } from '../types/route.types'
 import type { RPCGenerator, RPCGeneratorContext } from '../types/generator.types'
 import type { GeneratedClientInfo, SchemaInfo } from '../types/schema.types'
-import { buildFullApiPath } from '../utils/path-utils'
 import { camelCase, safeToString } from '../utils/string-utils'
+import { buildNormalizedRequestPath, groupRoutesByController } from './generator-utils'
 
 /**
  * Built-in generator for TypeScript RPC clients.
@@ -58,7 +58,7 @@ export class TypeScriptClientGenerator implements RPCGenerator {
 	 * Generates the client TypeScript content with types included.
 	 */
 	private generateClientContent(routes: readonly ExtendedRouteInfo[], schemas: readonly SchemaInfo[]): string {
-		const controllerGroups = this.groupRoutesByController(routes)
+		const controllerGroups = groupRoutesByController(routes)
 
 		return `// ============================================================================
 // TYPES SECTION
@@ -320,17 +320,8 @@ ${this.generateControllerMethods(controllerGroups)}
 				methods += `>) => {
 `
 
-				// Build the full API path using route information
-				let requestPath = buildFullApiPath(route)
-
-				// Replace path parameters with placeholders for dynamic substitution
-				if (pathParams.length > 0) {
-					for (const pathParam of pathParams) {
-						const paramName = pathParam.name
-						const placeholder = `:${String(pathParam.data)}`
-						requestPath = requestPath.replace(placeholder, `:${paramName}`)
-					}
-				}
+				// Build normalized path with stable parameter placeholders
+				const requestPath = buildNormalizedRequestPath(route)
 
 				methods += `				return this.request<Result>('${httpMethod.toUpperCase()}', \`${requestPath}\`, options)
 `
@@ -378,23 +369,6 @@ ${this.generateControllerMethods(controllerGroups)}
 			}
 		}
 		return content
-	}
-
-	/**
-	 * Groups routes by controller for better organization.
-	 */
-	private groupRoutesByController(routes: readonly ExtendedRouteInfo[]): ControllerGroups {
-		const groups = new Map<string, ExtendedRouteInfo[]>()
-
-		for (const route of routes) {
-			const controller = safeToString(route.controller)
-			if (!groups.has(controller)) {
-				groups.set(controller, [])
-			}
-			groups.get(controller)!.push(route)
-		}
-
-		return groups
 	}
 
 	/**
