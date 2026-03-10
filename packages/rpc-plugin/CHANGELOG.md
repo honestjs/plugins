@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.4.0
+
+### Minor Changes
+
+- c0e89aa: Remove OpenAPI spec generation. Add artifact to context.
+
 ## 1.3.0
 
 ### Minor Changes
