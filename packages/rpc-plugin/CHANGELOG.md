@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.5.0
+
+### Minor Changes
+
+- c0e5a15: Add generators option.
+
 ## 1.4.1
 
 ### Patch Changes
