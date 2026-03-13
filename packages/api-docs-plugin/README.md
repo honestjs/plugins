@@ -1,6 +1,6 @@
 # API Docs Plugin
 
-Serves OpenAPI JSON and Swagger UI for your HonestJS application. Always generates the spec from an artifact—pass `{ routes, schemas }` directly or a context key like `'rpc.artifact'` (e.g. from `@honestjs/rpc-plugin`).
+Serves OpenAPI JSON and Swagger UI for your HonestJS application. Always generates the spec from an artifact—pass `{ routes, schemas }` directly or a context key (default `'rpc.artifact'` when using with `@honestjs/rpc-plugin`).
 
 ## Installation
 
@@ -14,7 +14,7 @@ pnpm add @honestjs/api-docs-plugin
 
 ## Usage with RPC Plugin
 
-The RPC plugin writes its artifact to the application context. Pass the context key to read it. Ensure RPC runs before ApiDocs in the plugins array:
+The RPC plugin writes its artifact to the application context. ApiDocs defaults to the context key `'rpc.artifact'`, so you can omit `artifact` when using both plugins. Ensure RPC runs before ApiDocs in the plugins array:
 
 ```typescript
 import { Application } from "honestjs"
@@ -23,16 +23,13 @@ import { ApiDocsPlugin } from "@honestjs/api-docs-plugin"
 import AppModule from "./app.module"
 
 const { hono } = await Application.create(AppModule, {
-  plugins: [
-    new RPCPlugin(),
-    new ApiDocsPlugin({ artifact: "rpc.artifact" }),
-  ],
+  plugins: [new RPCPlugin(), new ApiDocsPlugin()],
 })
 
 export default hono
 ```
 
-If RPC uses custom `context.namespace` / `context.keys.artifact`, pass the resulting full key (for example, `custom.artifact`) to `artifact`.
+If RPC uses custom `context.namespace` / `context.keys.artifact`, pass the resulting full key to `artifact` (e.g. `new ApiDocsPlugin({ artifact: "custom.artifact" })`).
 
 By default:
 
@@ -66,8 +63,8 @@ plugins: [new ApiDocsPlugin({ artifact })]
 
 ```typescript
 interface ApiDocsPluginOptions {
-  // Required: artifact - direct object or context key (resolved by plugin via app.getContext().get)
-  artifact: OpenApiArtifactInput | string
+  // Optional: artifact - direct object or context key. Default: 'rpc.artifact'
+  artifact?: OpenApiArtifactInput | string
 
   // OpenAPI generation (when converting artifact to spec)
   title?: string

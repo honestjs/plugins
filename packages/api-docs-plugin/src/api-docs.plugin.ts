@@ -7,6 +7,8 @@ import type { OpenApiArtifactInput, OpenApiGenerationOptions } from './openapi.g
 const DEFAULT_OPENAPI_ROUTE = '/openapi.json'
 const DEFAULT_UI_ROUTE = '/docs'
 const DEFAULT_UI_TITLE = 'API Docs'
+/** Default context key when using with RPC plugin (writes to this key). */
+export const DEFAULT_ARTIFACT_KEY = 'rpc.artifact'
 
 export type ArtifactInput = OpenApiArtifactInput | string
 
@@ -21,8 +23,8 @@ function isArtifact(value: unknown): value is OpenApiArtifactInput {
 }
 
 export interface ApiDocsPluginOptions extends OpenApiGenerationOptions {
-	/** Artifact: direct object `{ routes, schemas }` or context key string (e.g. `'rpc.artifact'`) resolved via app.getContext().get(key). OpenAPI is always generated from the artifact. */
-	readonly artifact: ArtifactInput
+	/** Artifact: direct object `{ routes, schemas }` or context key string (e.g. `'rpc.artifact'`). Defaults to `'rpc.artifact'` when omitted. */
+	readonly artifact?: ArtifactInput
 	readonly openApiRoute?: string
 	readonly uiRoute?: string
 	readonly uiTitle?: string
@@ -40,8 +42,8 @@ export class ApiDocsPlugin implements IPlugin {
 	private app: Application | null = null
 	private cachedSpec: Record<string, unknown> | null = null
 
-	constructor(options: ApiDocsPluginOptions) {
-		this.artifact = options.artifact
+	constructor(options: ApiDocsPluginOptions = {}) {
+		this.artifact = options.artifact ?? DEFAULT_ARTIFACT_KEY
 		this.openApiRoute = this.normalizeRoute(options.openApiRoute ?? DEFAULT_OPENAPI_ROUTE)
 		this.uiRoute = this.normalizeRoute(options.uiRoute ?? DEFAULT_UI_ROUTE)
 		this.uiTitle = options.uiTitle ?? DEFAULT_UI_TITLE

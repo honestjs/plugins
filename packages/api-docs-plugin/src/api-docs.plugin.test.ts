@@ -88,6 +88,28 @@ describe('ApiDocsPlugin', () => {
 		expect(json.paths['/health'].get).toBeDefined()
 	})
 
+	it('defaults to rpc.artifact when artifact option omitted', async () => {
+		const plugin = new ApiDocsPlugin()
+		const { hono } = await Application.create(TestModule, {
+			plugins: [
+				{
+					plugin: plugin,
+					preProcessors: [
+						async (_app, _hono, ctx) => {
+							ctx.set('rpc.artifact', minimalArtifact)
+						}
+					]
+				}
+			]
+		})
+		const res = await hono.request('/openapi.json')
+		const json = await res.json()
+
+		expect(res.status).toBe(200)
+		expect(json.openapi).toBe('3.0.3')
+		expect(json.paths['/health']).toBeDefined()
+	})
+
 	it('serves Swagger UI HTML', async () => {
 		const plugin = new ApiDocsPlugin({
 			artifact: minimalArtifact,

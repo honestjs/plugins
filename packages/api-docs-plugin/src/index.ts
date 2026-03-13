@@ -1,4 +1,4 @@
-export { ApiDocsPlugin } from './api-docs.plugin'
+export { ApiDocsPlugin, DEFAULT_ARTIFACT_KEY } from './api-docs.plugin'
 export type { ApiDocsPluginOptions, ArtifactInput } from './api-docs.plugin'
 export { fromArtifact, fromArtifactSync, write } from './openapi.generator'
 export type {
