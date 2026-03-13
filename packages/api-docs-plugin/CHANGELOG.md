@@ -1,5 +1,11 @@
 # @honestjs/api-docs-plugin
 
+## 1.0.2
+
+### Patch Changes
+
+- 84c5209: Set default artifact key.
+
 ## 1.0.1
 
 ### Patch Changes
