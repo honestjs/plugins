@@ -2,7 +2,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { Application, Controller, Get, Module, RouteRegistry } from 'honestjs'
+import { Application, Module } from 'honestjs'
 import 'reflect-metadata'
 import { ApiDocsPlugin } from './api-docs.plugin'
 
@@ -28,15 +28,8 @@ const versionedArtifact = {
 	...minimalArtifact
 }
 
-@Controller('/health')
-class TestController {
-	@Get()
-	index() {
-		return { ok: true }
-	}
-}
-
-@Module({ controllers: [TestController] })
+// @ts-expect-error HonestJS currently uses legacy decorator semantics in runtime metadata.
+@Module({})
 class TestModule {}
 
 describe('ApiDocsPlugin', () => {
@@ -44,7 +37,6 @@ describe('ApiDocsPlugin', () => {
 	const tempDirs: string[] = []
 
 	afterEach(() => {
-		RouteRegistry.clear()
 		process.chdir(originalCwd)
 		for (const dir of tempDirs) {
 			if (fs.existsSync(dir)) {
