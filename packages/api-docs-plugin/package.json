@@ -49,7 +49,7 @@
 		"openapi-types": "^12.1.3"
 	},
 	"peerDependencies": {
-		"honestjs": "^0.1.9",
+		"honestjs": "^0.1.11",
 		"hono": "^4.0.0",
 		"typescript": "^5.x"
 	}
