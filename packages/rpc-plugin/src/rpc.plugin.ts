@@ -216,7 +216,8 @@ export class RPCPlugin implements IPlugin {
 			this.generatedInfos = []
 
 			// Step 1: Analyze routes and extract type information
-			this.analyzedRoutes = await this.routeAnalyzer.analyzeControllerMethods(this.project)
+			const appRoutes = this.app?.getRoutes() ?? []
+			this.analyzedRoutes = await this.routeAnalyzer.analyzeControllerMethods(this.project, appRoutes)
 			warnings.push(...this.routeAnalyzer.getWarnings())
 
 			// Step 2: Generate schemas from the types we found

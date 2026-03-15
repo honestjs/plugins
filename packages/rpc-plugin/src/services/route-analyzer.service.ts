@@ -1,4 +1,4 @@
-import { RouteRegistry, type ParameterMetadata, type RouteInfo } from 'honestjs'
+import type { ParameterMetadata, RouteInfo } from 'honestjs'
 import { ClassDeclaration, MethodDeclaration, Project } from 'ts-morph'
 import type { ExtendedRouteInfo, ParameterMetadataWithType } from '../types/route.types'
 import { buildFullApiPath } from '../utils/path-utils'
@@ -27,11 +27,12 @@ export class RouteAnalyzerService {
 	}
 
 	/**
-	 * Analyzes controller methods to extract type information
+	 * Analyzes controller methods to extract type information.
+	 * @param project - ts-morph project with source files loaded
+	 * @param routes - registered routes from `app.getRoutes()`
 	 */
-	async analyzeControllerMethods(project: Project): Promise<ExtendedRouteInfo[]> {
+	async analyzeControllerMethods(project: Project, routes: ReadonlyArray<RouteInfo>): Promise<ExtendedRouteInfo[]> {
 		this.warnings = []
-		const routes = RouteRegistry.getRoutes()
 		if (!routes?.length) {
 			return []
 		}
