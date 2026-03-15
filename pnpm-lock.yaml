@@ -43,8 +43,8 @@ importers:
         version: 5.9.3
     devDependencies:
       honestjs:
-        specifier: ^0.1.10
-        version: 0.1.10(hono@4.12.8)(reflect-metadata@0.2.2)(typescript@5.9.3)
+        specifier: ^0.1.11
+        version: 0.1.11(hono@4.12.8)(reflect-metadata@0.2.2)(typescript@5.9.3)
       hono:
         specifier: ^4.12.8
         version: 4.12.8
@@ -68,8 +68,8 @@ importers:
         version: 5.9.3
     devDependencies:
       honestjs:
-        specifier: ^0.1.10
-        version: 0.1.10(hono@4.12.8)(reflect-metadata@0.2.2)(typescript@5.9.3)
+        specifier: ^0.1.11
+        version: 0.1.11(hono@4.12.8)(reflect-metadata@0.2.2)(typescript@5.9.3)
       hono:
         specifier: ^4.12.8
         version: 4.12.8
@@ -742,8 +742,8 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  honestjs@0.1.10:
-    resolution: {integrity: sha512-muvcnVy2EUt9GMysA6GGQBvCrSaO9wrKd7Bzoi+WfrrDbkO4eUFk+fYnJHcqUFUCQriMtoDpZJgkjciReVuPfQ==}
+  honestjs@0.1.11:
+    resolution: {integrity: sha512-yTJ5YArsjCYUmf60XrPHTvQWVpk4cPdO+V/1ZvtzW0B6Obx3WtJeA7dXYfRt/2Wb2At4m4G+Zde6pwDQQ7icIg==}
     peerDependencies:
       hono: ^4.8.5
       reflect-metadata: ^0.2.2
@@ -2007,7 +2007,7 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  honestjs@0.1.10(hono@4.12.8)(reflect-metadata@0.2.2)(typescript@5.9.3):
+  honestjs@0.1.11(hono@4.12.8)(reflect-metadata@0.2.2)(typescript@5.9.3):
     dependencies:
       hono: 4.12.8
       reflect-metadata: 0.2.2
