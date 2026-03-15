@@ -1,18 +1,36 @@
 import { RouteRegistry, type ParameterMetadata, type RouteInfo } from 'honestjs'
 import { ClassDeclaration, MethodDeclaration, Project } from 'ts-morph'
-import { LOG_PREFIX } from '../constants/defaults'
 import type { ExtendedRouteInfo, ParameterMetadataWithType } from '../types/route.types'
 import { buildFullApiPath } from '../utils/path-utils'
 import { safeToString } from '../utils/string-utils'
+
+export interface RouteAnalyzerOptions {
+	readonly customClassMatcher?: (classDeclaration: ClassDeclaration) => boolean
+	readonly onWarn?: (message: string, details?: unknown) => void
+}
 
 /**
  * Service for analyzing controller methods and extracting type information
  */
 export class RouteAnalyzerService {
+	private readonly customClassMatcher?: (classDeclaration: ClassDeclaration) => boolean
+	private readonly onWarn?: (message: string, details?: unknown) => void
+	private warnings: string[] = []
+
+	constructor(options: RouteAnalyzerOptions = {}) {
+		this.customClassMatcher = options.customClassMatcher
+		this.onWarn = options.onWarn
+	}
+
+	getWarnings(): readonly string[] {
+		return this.warnings
+	}
+
 	/**
 	 * Analyzes controller methods to extract type information
 	 */
 	async analyzeControllerMethods(project: Project): Promise<ExtendedRouteInfo[]> {
+		this.warnings = []
 		const routes = RouteRegistry.getRoutes()
 		if (!routes?.length) {
 			return []
@@ -40,13 +58,21 @@ export class RouteAnalyzerService {
 			for (const classDeclaration of classes) {
 				const className = classDeclaration.getName()
 
-				if (className?.endsWith('Controller')) {
+				if (className && this.isControllerClass(classDeclaration, className)) {
 					controllers.set(className, classDeclaration)
 				}
 			}
 		}
 
 		return controllers
+	}
+
+	private isControllerClass(classDeclaration: ClassDeclaration, _className: string): boolean {
+		if (this.customClassMatcher) {
+			return this.customClassMatcher(classDeclaration)
+		}
+		const decoratorNames = classDeclaration.getDecorators().map((decorator) => decorator.getName())
+		return decoratorNames.includes('Controller') || decoratorNames.includes('View')
 	}
 
 	/**
@@ -63,10 +89,9 @@ export class RouteAnalyzerService {
 				const extendedRoute = this.createExtendedRoute(route, controllers)
 				analyzedRoutes.push(extendedRoute)
 			} catch (routeError) {
-				console.warn(
-					`${LOG_PREFIX} Skipping route ${safeToString(route.controller)}.${safeToString(route.handler)}:`,
-					routeError
-				)
+				const warning = `Skipping route ${safeToString(route.controller)}.${safeToString(route.handler)}`
+				this.warnings.push(warning)
+				this.onWarn?.(warning, routeError)
 			}
 		}
 
@@ -91,6 +116,10 @@ export class RouteAnalyzerService {
 				returns = this.getReturnType(handlerMethod)
 				parameters = this.getParametersWithTypes(handlerMethod, route.parameters || [])
 			}
+		} else {
+			const warning = `Controller class not found in source files: ${controllerName} (handler: ${handlerName})`
+			this.warnings.push(warning)
+			this.onWarn?.(warning)
 		}
 
 		return {

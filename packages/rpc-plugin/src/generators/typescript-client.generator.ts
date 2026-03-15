@@ -220,13 +220,21 @@ export class ApiClient {
 				return undefined as T
 			}
 
-			const responseData = await response.json()
+			const contentType = response.headers.get('content-type') || ''
+			const isJson = contentType.includes('application/json') || contentType.includes('+json')
+			const responseData = isJson ? await response.json() : await response.text()
 
 			if (!response.ok) {
-				throw new ApiError(response.status, responseData.message || 'Request failed')
+				const message =
+					typeof responseData === 'object' && responseData && 'message' in (responseData as Record<string, unknown>)
+						? String((responseData as Record<string, unknown>).message)
+						: typeof responseData === 'string' && responseData.trim()
+							? responseData
+							: 'Request failed'
+				throw new ApiError(response.status, message)
 			}
 
-			return responseData
+			return responseData as T
 		} catch (error) {
 			if (error instanceof ApiError) {
 				throw error

@@ -2,14 +2,28 @@ import fs from 'fs'
 import type { Application, IPlugin } from 'honestjs'
 import type { Hono } from 'hono'
 import path from 'path'
-import { Project } from 'ts-morph'
+import { ClassDeclaration, Project } from 'ts-morph'
 
 import { DEFAULT_OPTIONS, LOG_PREFIX } from './constants/defaults'
 import { TypeScriptClientGenerator } from './generators'
 import { computeHash, readChecksum, writeChecksum } from './utils/hash-utils'
+import { assertRpcArtifact, RPC_ARTIFACT_VERSION } from './utils/artifact-contract'
 import { RouteAnalyzerService } from './services/route-analyzer.service'
 import { SchemaGeneratorService } from './services/schema-generator.service'
 import type { ExtendedRouteInfo, GeneratedClientInfo, RPCGenerator, SchemaInfo } from './types'
+
+export type RPCMode = 'strict' | 'best-effort'
+export type RPCLogLevel = 'silent' | 'error' | 'warn' | 'info' | 'debug'
+
+export interface RPCDiagnostics {
+	readonly generatedAt: string
+	readonly mode: RPCMode
+	readonly dryRun: boolean
+	readonly cache: 'hit' | 'miss' | 'bypass'
+	readonly routesCount: number
+	readonly schemasCount: number
+	readonly warnings: readonly string[]
+}
 
 /**
  * Configuration options for the RPCPlugin
@@ -20,6 +34,11 @@ export interface RPCPluginOptions {
 	readonly outputDir?: string
 	readonly generateOnInit?: boolean
 	readonly generators?: readonly RPCGenerator[]
+	readonly mode?: RPCMode
+	readonly logLevel?: RPCLogLevel
+	readonly customClassMatcher?: (classDeclaration: ClassDeclaration) => boolean
+	readonly failOnSchemaError?: boolean
+	readonly failOnRouteAnalysisWarning?: boolean
 	readonly context?: {
 		readonly namespace?: string
 		readonly keys?: {
@@ -38,6 +57,11 @@ export class RPCPlugin implements IPlugin {
 	private readonly generateOnInit: boolean
 	private readonly contextNamespace: string
 	private readonly contextArtifactKey: string
+	private readonly mode: RPCMode
+	private readonly logLevel: RPCLogLevel
+	private readonly failOnSchemaError: boolean
+	private readonly failOnRouteAnalysisWarning: boolean
+	private readonly customClassMatcher?: (classDeclaration: ClassDeclaration) => boolean
 
 	// Services
 	private readonly routeAnalyzer: RouteAnalyzerService
@@ -51,6 +75,7 @@ export class RPCPlugin implements IPlugin {
 	private analyzedRoutes: ExtendedRouteInfo[] = []
 	private analyzedSchemas: SchemaInfo[] = []
 	private generatedInfos: GeneratedClientInfo[] = []
+	private diagnostics: RPCDiagnostics | null = null
 	private app: Application | null = null
 
 	constructor(options: RPCPluginOptions = {}) {
@@ -58,12 +83,23 @@ export class RPCPlugin implements IPlugin {
 		this.tsConfigPath = options.tsConfigPath ?? path.resolve(process.cwd(), DEFAULT_OPTIONS.tsConfigPath)
 		this.outputDir = options.outputDir ?? path.resolve(process.cwd(), DEFAULT_OPTIONS.outputDir)
 		this.generateOnInit = options.generateOnInit ?? DEFAULT_OPTIONS.generateOnInit
+		this.mode = options.mode ?? DEFAULT_OPTIONS.mode
+		this.logLevel = options.logLevel ?? DEFAULT_OPTIONS.logLevel
 		this.contextNamespace = options.context?.namespace ?? DEFAULT_OPTIONS.context.namespace
 		this.contextArtifactKey = options.context?.keys?.artifact ?? DEFAULT_OPTIONS.context.keys.artifact
+		this.customClassMatcher = options.customClassMatcher
+		this.failOnSchemaError = options.failOnSchemaError ?? this.mode === 'strict'
+		this.failOnRouteAnalysisWarning = options.failOnRouteAnalysisWarning ?? this.mode === 'strict'
 
 		// Initialize services
-		this.routeAnalyzer = new RouteAnalyzerService()
-		this.schemaGenerator = new SchemaGeneratorService(this.controllerPattern, this.tsConfigPath)
+		this.routeAnalyzer = new RouteAnalyzerService({
+			customClassMatcher: this.customClassMatcher,
+			onWarn: (message, details) => this.logWarn(message, details)
+		})
+		this.schemaGenerator = new SchemaGeneratorService(this.controllerPattern, this.tsConfigPath, {
+			failOnSchemaError: this.failOnSchemaError,
+			onWarn: (message, details) => this.logWarn(message, details)
+		})
 		this.generators = options.generators ?? [new TypeScriptClientGenerator(this.outputDir)]
 
 		this.validateConfiguration()
@@ -90,6 +126,12 @@ export class RPCPlugin implements IPlugin {
 		if (!this.outputDir?.trim()) {
 			errors.push('Output directory cannot be empty')
 		}
+		if (!['strict', 'best-effort'].includes(this.mode)) {
+			errors.push('Mode must be "strict" or "best-effort"')
+		}
+		if (!['silent', 'error', 'warn', 'info', 'debug'].includes(this.logLevel)) {
+			errors.push('logLevel must be one of: silent, error, warn, info, debug')
+		}
 		if (!this.contextNamespace?.trim()) {
 			errors.push('Context namespace cannot be empty')
 		}
@@ -110,7 +152,7 @@ export class RPCPlugin implements IPlugin {
 		}
 
 		this.log(
-			`Configuration validated: controllerPattern=${this.controllerPattern}, tsConfigPath=${this.tsConfigPath}, outputDir=${this.outputDir}`
+			`Configuration validated: controllerPattern=${this.controllerPattern}, tsConfigPath=${this.tsConfigPath}, outputDir=${this.outputDir}, mode=${this.mode}`
 		)
 	}
 
@@ -120,7 +162,7 @@ export class RPCPlugin implements IPlugin {
 	afterModulesRegistered = async (app: Application, hono: Hono): Promise<void> => {
 		this.app = app
 		if (this.generateOnInit) {
-			await this.analyzeEverything()
+			await this.analyzeEverything({ force: false, dryRun: false })
 			this.publishArtifact(app)
 		}
 	}
@@ -128,7 +170,11 @@ export class RPCPlugin implements IPlugin {
 	/**
 	 * Main analysis method that coordinates all three components
 	 */
-	private async analyzeEverything(force = false): Promise<void> {
+	private async analyzeEverything(options: { force: boolean; dryRun: boolean }): Promise<void> {
+		const { force, dryRun } = options
+		const warnings: string[] = []
+		let cacheState: RPCDiagnostics['cache'] = force ? 'bypass' : 'miss'
+
 		try {
 			this.log('Starting comprehensive RPC analysis...')
 
@@ -146,11 +192,21 @@ export class RPCPlugin implements IPlugin {
 
 				if (stored && stored.hash === currentHash && this.outputFilesExist()) {
 					if (this.loadArtifactFromDisk()) {
-						this.log('Source files unchanged — skipping regeneration')
+						cacheState = 'hit'
+						this.logDebug('Source files unchanged - skipping regeneration')
+						this.diagnostics = {
+							generatedAt: new Date().toISOString(),
+							mode: this.mode,
+							dryRun,
+							cache: cacheState,
+							routesCount: this.analyzedRoutes.length,
+							schemasCount: this.analyzedSchemas.length,
+							warnings: []
+						}
 						this.dispose()
 						return
 					}
-					this.log('Source files unchanged but cached artifact missing/invalid — regenerating')
+					this.logDebug('Source files unchanged but cached artifact missing/invalid - regenerating')
 				}
 			}
 
@@ -161,16 +217,37 @@ export class RPCPlugin implements IPlugin {
 
 			// Step 1: Analyze routes and extract type information
 			this.analyzedRoutes = await this.routeAnalyzer.analyzeControllerMethods(this.project)
+			warnings.push(...this.routeAnalyzer.getWarnings())
 
 			// Step 2: Generate schemas from the types we found
 			this.analyzedSchemas = await this.schemaGenerator.generateSchemas(this.project)
+			warnings.push(...this.schemaGenerator.getWarnings())
+
+			if (this.failOnRouteAnalysisWarning && this.routeAnalyzer.getWarnings().length > 0) {
+				throw new Error(`Route analysis warnings encountered in strict mode: ${this.routeAnalyzer.getWarnings().join('; ')}`)
+			}
 
 			// Step 3: Run configured generators
-			this.generatedInfos = await this.runGenerators()
+			if (!dryRun) {
+				this.generatedInfos = await this.runGenerators()
+			}
 
-			// Write checksum after successful generation
-			await writeChecksum(this.outputDir, { hash: computeHash(filePaths), files: filePaths })
-			this.writeArtifactToDisk()
+			if (!dryRun) {
+				// Write checksum after successful generation
+				await writeChecksum(this.outputDir, { hash: computeHash(filePaths), files: filePaths })
+				this.writeArtifactToDisk()
+			}
+
+			this.diagnostics = {
+				generatedAt: new Date().toISOString(),
+				mode: this.mode,
+				dryRun,
+				cache: cacheState,
+				routesCount: this.analyzedRoutes.length,
+				schemasCount: this.analyzedSchemas.length,
+				warnings
+			}
+			this.writeDiagnosticsToDisk()
 
 			this.log(
 				`✅ RPC analysis complete: ${this.analyzedRoutes.length} routes, ${this.analyzedSchemas.length} schemas`
@@ -186,9 +263,16 @@ export class RPCPlugin implements IPlugin {
 	 * Manually trigger analysis (useful for testing or re-generation).
 	 * Defaults to force=true to bypass cache; pass false to use caching.
 	 */
-	async analyze(force = true): Promise<void> {
-		await this.analyzeEverything(force)
-		if (this.app) {
+	async analyze(force: boolean): Promise<void>
+	async analyze(options: { force?: boolean; dryRun?: boolean }): Promise<void>
+	async analyze(forceOrOptions: boolean | { force?: boolean; dryRun?: boolean } = true): Promise<void> {
+		const options =
+			typeof forceOrOptions === 'boolean'
+				? { force: forceOrOptions, dryRun: false }
+				: { force: forceOrOptions.force ?? true, dryRun: forceOrOptions.dryRun ?? false }
+
+		await this.analyzeEverything(options)
+		if (this.app && !options.dryRun) {
 			this.publishArtifact(this.app)
 		}
 	}
@@ -221,6 +305,10 @@ export class RPCPlugin implements IPlugin {
 		return this.generatedInfos
 	}
 
+	getDiagnostics(): RPCDiagnostics | null {
+		return this.diagnostics
+	}
+
 	/**
 	 * Checks whether expected output files exist on disk
 	 */
@@ -238,8 +326,13 @@ export class RPCPlugin implements IPlugin {
 		return path.join(this.outputDir, 'rpc-artifact.json')
 	}
 
+	private getDiagnosticsPath(): string {
+		return path.join(this.outputDir, 'rpc-diagnostics.json')
+	}
+
 	private writeArtifactToDisk(): void {
 		const artifact = {
+			artifactVersion: RPC_ARTIFACT_VERSION,
 			routes: this.analyzedRoutes,
 			schemas: this.analyzedSchemas
 		}
@@ -247,18 +340,31 @@ export class RPCPlugin implements IPlugin {
 		fs.writeFileSync(this.getArtifactPath(), JSON.stringify(artifact))
 	}
 
+	private writeDiagnosticsToDisk(): void {
+		if (!this.diagnostics) return
+		fs.mkdirSync(this.outputDir, { recursive: true })
+		fs.writeFileSync(this.getDiagnosticsPath(), JSON.stringify(this.diagnostics, null, 2))
+	}
+
 	private loadArtifactFromDisk(): boolean {
 		try {
 			const raw = fs.readFileSync(this.getArtifactPath(), 'utf8')
 			const parsed = JSON.parse(raw) as {
+				artifactVersion?: unknown
 				routes?: unknown
 				schemas?: unknown
 			}
-			if (!Array.isArray(parsed.routes) || !Array.isArray(parsed.schemas)) {
-				return false
+			if (parsed.artifactVersion === undefined) {
+				if (!Array.isArray(parsed.routes) || !Array.isArray(parsed.schemas)) {
+					return false
+				}
+				this.analyzedRoutes = parsed.routes as ExtendedRouteInfo[]
+				this.analyzedSchemas = parsed.schemas as SchemaInfo[]
+			} else {
+				assertRpcArtifact(parsed)
+				this.analyzedRoutes = parsed.routes as ExtendedRouteInfo[]
+				this.analyzedSchemas = parsed.schemas as SchemaInfo[]
 			}
-			this.analyzedRoutes = parsed.routes as ExtendedRouteInfo[]
-			this.analyzedSchemas = parsed.schemas as SchemaInfo[]
 			this.generatedInfos = []
 			return true
 		} catch {
@@ -286,6 +392,7 @@ export class RPCPlugin implements IPlugin {
 
 	private publishArtifact(app: Application): void {
 		app.getContext().set(this.getArtifactContextKey(), {
+			artifactVersion: RPC_ARTIFACT_VERSION,
 			routes: this.analyzedRoutes,
 			schemas: this.analyzedSchemas
 		})
@@ -313,13 +420,41 @@ export class RPCPlugin implements IPlugin {
 	 * Logs a message with the plugin prefix
 	 */
 	private log(message: string): void {
-		console.log(`${LOG_PREFIX} ${message}`)
+		if (this.canLog('info')) {
+			console.log(`${LOG_PREFIX} ${message}`)
+		}
 	}
 
 	/**
 	 * Logs an error with the plugin prefix
 	 */
 	private logError(message: string, error?: unknown): void {
-		console.error(`${LOG_PREFIX} ${message}`, error || '')
+		if (this.canLog('error')) {
+			console.error(`${LOG_PREFIX} ${message}`, error || '')
+		}
+	}
+
+	private logWarn(message: string, details?: unknown): void {
+		if (this.canLog('warn')) {
+			console.warn(`${LOG_PREFIX} ${message}`, details || '')
+		}
+	}
+
+	private logDebug(message: string): void {
+		if (this.canLog('debug')) {
+			console.log(`${LOG_PREFIX} ${message}`)
+		}
+	}
+
+	private canLog(level: 'error' | 'warn' | 'info' | 'debug'): boolean {
+		const order: Record<RPCLogLevel, number> = {
+			silent: 0,
+			error: 1,
+			warn: 2,
+			info: 3,
+			debug: 4
+		}
+
+		return order[this.logLevel] >= order[level]
 	}
 }

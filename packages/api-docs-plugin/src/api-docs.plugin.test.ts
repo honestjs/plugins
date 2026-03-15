@@ -23,6 +23,11 @@ const minimalArtifact = {
 	schemas: [] as const
 }
 
+const versionedArtifact = {
+	artifactVersion: '1',
+	...minimalArtifact
+}
+
 @Controller('/health')
 class TestController {
 	@Get()
@@ -51,7 +56,7 @@ describe('ApiDocsPlugin', () => {
 
 	it('serves OpenAPI JSON from direct artifact', async () => {
 		const plugin = new ApiDocsPlugin({
-			artifact: minimalArtifact,
+			artifact: versionedArtifact,
 			title: 'Inline API',
 			version: '1.0.0'
 		})
@@ -137,5 +142,40 @@ describe('ApiDocsPlugin', () => {
 		expect(json.error).toBe('Failed to load OpenAPI spec')
 		expect(json.message).toContain('no artifact at context key')
 		expect(json.message).toContain('missing.key')
+	})
+
+	it('returns 500 for unsupported artifact version', async () => {
+		const plugin = new ApiDocsPlugin({
+			artifact: {
+				...minimalArtifact,
+				artifactVersion: '2'
+			}
+		})
+		const { hono } = await Application.create(TestModule, { plugins: [plugin] })
+		const res = await hono.request('/openapi.json')
+		const json = await res.json()
+
+		expect(res.status).toBe(500)
+		expect(json.message).toContain('unsupported artifactVersion')
+	})
+
+	it('supports auth hooks for OpenAPI and UI routes', async () => {
+		const plugin = new ApiDocsPlugin({
+			artifact: minimalArtifact,
+			onOpenApiRequest: async (_c, next) => {
+				await next()
+			},
+			onUiRequest: () => {
+				return new Response('blocked', { status: 401 })
+			}
+		})
+		const { hono } = await Application.create(TestModule, { plugins: [plugin] })
+
+		const openApiRes = await hono.request('/openapi.json')
+		expect(openApiRes.status).toBe(200)
+
+		const uiRes = await hono.request('/docs')
+		expect(uiRes.status).toBe(401)
+		expect(await uiRes.text()).toBe('blocked')
 	})
 })

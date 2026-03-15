@@ -6,6 +6,9 @@ export const DEFAULT_OPTIONS = {
 	tsConfigPath: 'tsconfig.json',
 	outputDir: './generated/rpc',
 	generateOnInit: true,
+	mode: 'best-effort',
+	logLevel: 'info',
+	artifactVersion: '1',
 	context: {
 		namespace: 'rpc',
 		keys: {

@@ -4,19 +4,37 @@ import type { SchemaInfo } from '../types/schema.types'
 import { generateTypeScriptInterface } from '../utils/schema-utils'
 import { extractNamedType } from '../utils/type-utils'
 
+export interface SchemaGeneratorOptions {
+	readonly failOnSchemaError?: boolean
+	readonly onWarn?: (message: string, details?: unknown) => void
+}
+
 /**
  * Service for generating JSON schemas from TypeScript types used in controllers
  */
 export class SchemaGeneratorService {
+	private readonly failOnSchemaError: boolean
+	private readonly onWarn?: (message: string, details?: unknown) => void
+	private warnings: string[] = []
+
 	constructor(
 		private readonly controllerPattern: string,
-		private readonly tsConfigPath: string
-	) {}
+		private readonly tsConfigPath: string,
+		options: SchemaGeneratorOptions = {}
+	) {
+		this.failOnSchemaError = options.failOnSchemaError ?? false
+		this.onWarn = options.onWarn
+	}
+
+	getWarnings(): readonly string[] {
+		return this.warnings
+	}
 
 	/**
 	 * Generates JSON schemas from types used in controllers
 	 */
 	async generateSchemas(project: Project): Promise<SchemaInfo[]> {
+		this.warnings = []
 		const sourceFiles = project.getSourceFiles(this.controllerPattern)
 
 		const collectedTypes = this.collectTypesFromControllers(sourceFiles)
@@ -74,7 +92,13 @@ export class SchemaGeneratorService {
 					typescriptType
 				})
 			} catch (err) {
-				console.error(`Failed to generate schema for ${typeName}:`, err)
+				if (this.failOnSchemaError) {
+					throw err
+				}
+
+				const warning = `Failed to generate schema for ${typeName}`
+				this.warnings.push(warning)
+				this.onWarn?.(warning, err)
 			}
 		}
 
@@ -95,7 +119,12 @@ export class SchemaGeneratorService {
 
 			return generator.createSchema(typeName)
 		} catch (error) {
-			console.error(`Failed to generate schema for type ${typeName}:`, error)
+			if (this.failOnSchemaError) {
+				throw error
+			}
+			const warning = `Failed to generate schema for type ${typeName}`
+			this.warnings.push(warning)
+			this.onWarn?.(warning, error)
 			// Return a basic schema structure as fallback
 			return {
 				type: 'object',

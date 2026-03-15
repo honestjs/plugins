@@ -24,6 +24,7 @@ export { SchemaGeneratorService } from './services/schema-generator.service'
 
 // Export utilities for custom implementations
 export * from './utils/hash-utils'
+export * from './utils/artifact-contract'
 export * from './utils/path-utils'
 export * from './utils/schema-utils'
 export * from './utils/string-utils'

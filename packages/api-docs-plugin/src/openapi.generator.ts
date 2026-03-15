@@ -10,6 +10,7 @@ export interface OpenApiGenerationOptions {
 }
 
 export interface OpenApiArtifactInput {
+	readonly artifactVersion?: string
 	readonly routes: readonly OpenApiRouteInput[]
 	readonly schemas: readonly OpenApiSchemaInput[]
 }

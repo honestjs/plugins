@@ -1,3 +1,5 @@
+import type { ExtendedRouteInfo } from './route.types'
+
 /**
  * Schema with comprehensive type information
  */
@@ -15,4 +17,13 @@ export interface GeneratedClientInfo {
 	readonly clientFile?: string
 	readonly outputFiles?: readonly string[]
 	readonly generatedAt: string
+}
+
+/**
+ * Serialized artifact produced by RPCPlugin and published to application context.
+ */
+export interface RpcArtifact {
+	readonly artifactVersion: string
+	readonly routes: readonly ExtendedRouteInfo[]
+	readonly schemas: readonly SchemaInfo[]
 }

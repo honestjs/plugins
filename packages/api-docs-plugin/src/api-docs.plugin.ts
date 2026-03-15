@@ -1,5 +1,5 @@
 import type { Application, IPlugin } from 'honestjs'
-import type { Hono } from 'hono'
+import type { Context, Hono, Next } from 'hono'
 
 import { fromArtifactSync } from './openapi.generator'
 import type { OpenApiArtifactInput, OpenApiGenerationOptions } from './openapi.generator'
@@ -29,6 +29,8 @@ export interface ApiDocsPluginOptions extends OpenApiGenerationOptions {
 	readonly uiRoute?: string
 	readonly uiTitle?: string
 	readonly reloadOnRequest?: boolean
+	readonly onOpenApiRequest?: (c: Context, next: Next) => void | Response | Promise<void | Response>
+	readonly onUiRequest?: (c: Context, next: Next) => void | Response | Promise<void | Response>
 }
 
 export class ApiDocsPlugin implements IPlugin {
@@ -38,6 +40,8 @@ export class ApiDocsPlugin implements IPlugin {
 	private readonly uiTitle: string
 	private readonly reloadOnRequest: boolean
 	private readonly genOptions: OpenApiGenerationOptions
+	private readonly onOpenApiRequest?: (c: Context, next: Next) => void | Response | Promise<void | Response>
+	private readonly onUiRequest?: (c: Context, next: Next) => void | Response | Promise<void | Response>
 
 	private app: Application | null = null
 	private cachedSpec: Record<string, unknown> | null = null
@@ -48,6 +52,8 @@ export class ApiDocsPlugin implements IPlugin {
 		this.uiRoute = this.normalizeRoute(options.uiRoute ?? DEFAULT_UI_ROUTE)
 		this.uiTitle = options.uiTitle ?? DEFAULT_UI_TITLE
 		this.reloadOnRequest = options.reloadOnRequest ?? false
+		this.onOpenApiRequest = options.onOpenApiRequest
+		this.onUiRequest = options.onUiRequest
 		this.genOptions = {
 			title: options.title,
 			version: options.version,
@@ -61,6 +67,8 @@ export class ApiDocsPlugin implements IPlugin {
 
 		hono.get(this.openApiRoute, async (c) => {
 			try {
+				const earlyResponse = await this.runHook(this.onOpenApiRequest, c)
+				if (earlyResponse) return earlyResponse
 				const spec = await this.resolveSpec()
 				return c.json(spec)
 			} catch (error) {
@@ -74,7 +82,9 @@ export class ApiDocsPlugin implements IPlugin {
 			}
 		})
 
-		hono.get(this.uiRoute, (c) => {
+		hono.get(this.uiRoute, async (c) => {
+			const earlyResponse = await this.runHook(this.onUiRequest, c)
+			if (earlyResponse) return earlyResponse
 			return c.html(this.renderSwaggerUiHtml())
 		})
 	}
@@ -116,9 +126,34 @@ export class ApiDocsPlugin implements IPlugin {
 			artifact = this.artifact
 		}
 
+		const artifactVersion = (artifact as { artifactVersion?: unknown }).artifactVersion
+		if (artifactVersion !== undefined && artifactVersion !== '1') {
+			throw new Error(
+				`ApiDocsPlugin: unsupported artifactVersion '${String(artifactVersion)}'. Supported versions: 1.`
+			)
+		}
+
 		const spec = fromArtifactSync(artifact, this.genOptions) as unknown as Record<string, unknown>
 		if (!this.reloadOnRequest) this.cachedSpec = spec
 		return spec
+	}
+
+	private async runHook(
+		hook: ((c: Context, next: Next) => void | Response | Promise<void | Response>) | undefined,
+		c: Context
+	): Promise<Response | undefined> {
+		if (!hook) return undefined
+		let nextCalled = false
+		const maybeResponse = await hook(c, async () => {
+			nextCalled = true
+		})
+		if (maybeResponse instanceof Response) {
+			return maybeResponse
+		}
+		if (!nextCalled) {
+			return new Response('Forbidden', { status: 403 })
+		}
+		return undefined
 	}
 
 	private renderSwaggerUiHtml(): string {

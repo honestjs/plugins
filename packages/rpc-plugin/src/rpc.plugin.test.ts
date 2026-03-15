@@ -159,6 +159,7 @@ describe('RPCPlugin', () => {
 
 			expect(store.has('rpc.artifact')).toBe(true)
 			expect(store.get('rpc.artifact')).toEqual({
+				artifactVersion: '1',
 				routes: [{ fullPath: '/health' }],
 				schemas: [{ type: 'HealthDto', schema: { type: 'object' } }]
 			})
@@ -194,6 +195,7 @@ describe('RPCPlugin', () => {
 
 			expect(store.has('custom.routes')).toBe(true)
 			expect(store.get('custom.routes')).toEqual({
+				artifactVersion: '1',
 				routes: [{ fullPath: '/users' }],
 				schemas: [{ type: 'UserDto', schema: { type: 'object' } }]
 			})
@@ -241,6 +243,23 @@ describe('RPCPlugin', () => {
 			expect(results).toHaveLength(1)
 			expect(results[0]?.generator).toBe('typescript-client')
 			expect(fs.existsSync(path.join(outputDir, 'client.ts'))).toBe(true)
+		})
+	})
+
+	describe('analyze options', () => {
+		it('supports dryRun without generating client files', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-dry-run-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			await plugin.analyze({ force: true, dryRun: true })
+			expect(fs.existsSync(path.join(outputDir, 'client.ts'))).toBe(false)
+			expect(fs.existsSync(path.join(outputDir, 'rpc-diagnostics.json'))).toBe(true)
+			expect(plugin.getDiagnostics()?.dryRun).toBe(true)
 		})
 	})
 })
