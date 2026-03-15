@@ -1,5 +1,12 @@
 # @honestjs/api-docs-plugin
 
+## 1.1.0
+
+### Minor Changes
+
+- 522310d: - Validate `artifactVersion` when provided (supports version `1`).
+    - Add optional route auth hooks: `onOpenApiRequest` and `onUiRequest`.
+
 ## 1.0.2
 
 ### Patch Changes
