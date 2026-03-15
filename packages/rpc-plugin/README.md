@@ -1,8 +1,7 @@
 # RPC Plugin
 
-The RPC Plugin automatically analyzes your HonestJS controllers and, by default,
-generates a fully-typed TypeScript RPC client with proper parameter typing. You
-can also provide custom generators.
+The RPC Plugin automatically analyzes your HonestJS controllers and, by default, generates a fully-typed TypeScript RPC
+client with proper parameter typing. You can also provide custom generators.
 
 ## Installation
 
@@ -17,55 +16,52 @@ pnpm add @honestjs/rpc-plugin
 ## Basic Setup
 
 ```typescript
-import { RPCPlugin } from "@honestjs/rpc-plugin";
-import { Application } from "honestjs";
-import AppModule from "./app.module";
+import { RPCPlugin } from '@honestjs/rpc-plugin'
+import { Application } from 'honestjs'
+import AppModule from './app.module'
 
 const { hono } = await Application.create(AppModule, {
-	plugins: [new RPCPlugin()],
-});
+	plugins: [new RPCPlugin()]
+})
 
-export default hono;
+export default hono
 ```
 
 ## Configuration Options
 
 ```typescript
 interface RPCPluginOptions {
-	readonly controllerPattern?: string; // Glob pattern for controller files (default: 'src/modules/*/*.controller.ts')
-	readonly tsConfigPath?: string; // Path to tsconfig.json (default: 'tsconfig.json')
-	readonly outputDir?: string; // Output directory for generated files (default: './generated/rpc')
-	readonly generateOnInit?: boolean; // Generate files on initialization (default: true)
-	readonly generators?: readonly RPCGenerator[]; // Optional list of generators to execute
-	readonly mode?: "strict" | "best-effort"; // strict fails on warnings/fallbacks
-	readonly logLevel?: "silent" | "error" | "warn" | "info" | "debug"; // default: info
-	readonly customClassMatcher?: (
-		classDeclaration: ClassDeclaration,
-	) => boolean; // optional override; default discovery uses decorators
-	readonly failOnSchemaError?: boolean; // default true in strict mode
-	readonly failOnRouteAnalysisWarning?: boolean; // default true in strict mode
+	readonly controllerPattern?: string // Glob pattern for controller files (default: 'src/modules/*/*.controller.ts')
+	readonly tsConfigPath?: string // Path to tsconfig.json (default: 'tsconfig.json')
+	readonly outputDir?: string // Output directory for generated files (default: './generated/rpc')
+	readonly generateOnInit?: boolean // Generate files on initialization (default: true)
+	readonly generators?: readonly RPCGenerator[] // Optional list of generators to execute
+	readonly mode?: 'strict' | 'best-effort' // strict fails on warnings/fallbacks
+	readonly logLevel?: 'silent' | 'error' | 'warn' | 'info' | 'debug' // default: info
+	readonly customClassMatcher?: (classDeclaration: ClassDeclaration) => boolean // optional override; default discovery uses decorators
+	readonly failOnSchemaError?: boolean // default true in strict mode
+	readonly failOnRouteAnalysisWarning?: boolean // default true in strict mode
 	readonly context?: {
-		readonly namespace?: string; // Default: 'rpc'
+		readonly namespace?: string // Default: 'rpc'
 		readonly keys?: {
-			readonly artifact?: string; // Default: 'artifact'
-		};
-	};
+			readonly artifact?: string // Default: 'artifact'
+		}
+	}
 }
 ```
 
 ### Generator Behavior
 
-- If `generators` is omitted, the plugin uses the built-in
-  `TypeScriptClientGenerator` by default.
+- If `generators` is omitted, the plugin uses the built-in `TypeScriptClientGenerator` by default.
 - If `generators` is provided, only those generators are executed.
 - You can still use the built-in TypeScript client generator explicitly:
 
 ```typescript
-import { RPCPlugin, TypeScriptClientGenerator } from "@honestjs/rpc-plugin";
+import { RPCPlugin, TypeScriptClientGenerator } from '@honestjs/rpc-plugin'
 
 new RPCPlugin({
-	generators: [new TypeScriptClientGenerator("./generated/rpc")],
-});
+	generators: [new TypeScriptClientGenerator('./generated/rpc')]
+})
 ```
 
 ## Application Context Artifact
@@ -74,22 +70,21 @@ After analysis, RPC plugin publishes this artifact to the application context:
 
 ```typescript
 type RpcArtifact = {
-	artifactVersion: string;
-	routes: ExtendedRouteInfo[];
-	schemas: SchemaInfo[];
-};
+	artifactVersion: string
+	routes: ExtendedRouteInfo[]
+	schemas: SchemaInfo[]
+}
 ```
 
-Default key is `'rpc.artifact'` (from
-`context.namespace + '.' + context.keys.artifact`). This enables direct
+Default key is `'rpc.artifact'` (from `context.namespace + '.' + context.keys.artifact`). This enables direct
 integration with API docs:
 
 ```typescript
-import { ApiDocsPlugin } from "@honestjs/api-docs-plugin";
+import { ApiDocsPlugin } from '@honestjs/api-docs-plugin'
 
 const { hono } = await Application.create(AppModule, {
-	plugins: [new RPCPlugin(), new ApiDocsPlugin({ artifact: "rpc.artifact" })],
-});
+	plugins: [new RPCPlugin(), new ApiDocsPlugin({ artifact: 'rpc.artifact' })]
+})
 ```
 
 `artifactVersion` is currently `"1"` and is used for compatibility checks.
@@ -107,45 +102,41 @@ The plugin generates files in the output directory (default: `./generated/rpc`):
 
 ### TypeScript RPC Client (`client.ts`)
 
-The plugin generates a single comprehensive file that includes both the client
-and all type definitions:
+The plugin generates a single comprehensive file that includes both the client and all type definitions:
 
 - **Controller-based organization**: Methods grouped by controller
 - **Type-safe parameters**: Path, query, and body parameters with proper typing
-- **Flexible request options**: Clean separation of params, query, body, and
-  headers
+- **Flexible request options**: Clean separation of params, query, body, and headers
 - **Error handling**: Built-in error handling with custom ApiError class
 - **Header management**: Easy custom header management
-- **Custom fetch support**: Inject custom fetch implementations for testing,
-  middleware, and compatibility
-- **Integrated types**: All DTOs, interfaces, and utility types included in the
-  same file
+- **Custom fetch support**: Inject custom fetch implementations for testing, middleware, and compatibility
+- **Integrated types**: All DTOs, interfaces, and utility types included in the same file
 
 ```typescript
 // Generated client usage
-import { ApiClient } from "./generated/rpc/client";
+import { ApiClient } from './generated/rpc/client'
 
 // Create client instance with base URL
-const apiClient = new ApiClient("http://localhost:3000");
+const apiClient = new ApiClient('http://localhost:3000')
 
 // Type-safe API calls
 const user = await apiClient.users.create({
-	body: { name: "John", email: "john@example.com" },
-});
+	body: { name: 'John', email: 'john@example.com' }
+})
 
 const users = await apiClient.users.list({
-	query: { page: 1, limit: 10 },
-});
+	query: { page: 1, limit: 10 }
+})
 
 const user = await apiClient.users.getById({
-	params: { id: "123" },
-});
+	params: { id: '123' }
+})
 
 // Set custom headers
 apiClient.setDefaultHeaders({
-	"X-API-Key": "your-api-key",
-	Authorization: "Bearer your-jwt-token",
-});
+	'X-API-Key': 'your-api-key',
+	Authorization: 'Bearer your-jwt-token'
+})
 ```
 
 The generated `client.ts` file contains everything you need:
@@ -161,8 +152,7 @@ The RPC client supports custom fetch implementations, which is useful for:
 
 - **Testing**: Inject mock fetch functions for unit testing
 - **Custom Logic**: Add logging, retries, or other middleware
-- **Environment Compatibility**: Use different fetch implementations
-  (node-fetch, undici, etc.)
+- **Environment Compatibility**: Use different fetch implementations (node-fetch, undici, etc.)
 - **Interceptors**: Wrap requests with custom logic before/after execution
 
 ### Basic Custom Fetch Example
@@ -170,18 +160,13 @@ The RPC client supports custom fetch implementations, which is useful for:
 ```typescript
 // Simple logging wrapper
 const loggingFetch = (input: RequestInfo | URL, init?: RequestInit) => {
-	console.log(
-		`[${new Date().toISOString()}] Making ${
-			init?.method || "GET"
-		} request to:`,
-		input,
-	);
-	return fetch(input, init);
-};
+	console.log(`[${new Date().toISOString()}] Making ${init?.method || 'GET'} request to:`, input)
+	return fetch(input, init)
+}
 
-const apiClient = new ApiClient("http://localhost:3000", {
-	fetchFn: loggingFetch,
-});
+const apiClient = new ApiClient('http://localhost:3000', {
+	fetchFn: loggingFetch
+})
 ```
 
 ### Advanced Custom Fetch Examples
@@ -192,26 +177,24 @@ const retryFetch = (maxRetries = 3) => {
 	return async (input: RequestInfo | URL, init?: RequestInit) => {
 		for (let i = 0; i <= maxRetries; i++) {
 			try {
-				const response = await fetch(input, init);
-				if (response.ok) return response;
+				const response = await fetch(input, init)
+				if (response.ok) return response
 
-				if (i === maxRetries) return response;
+				if (i === maxRetries) return response
 
 				// Wait with exponential backoff
-				await new Promise((resolve) =>
-					setTimeout(resolve, Math.pow(2, i) * 1000)
-				);
+				await new Promise((resolve) => setTimeout(resolve, Math.pow(2, i) * 1000))
 			} catch (error) {
-				if (i === maxRetries) throw error;
+				if (i === maxRetries) throw error
 			}
 		}
-		throw new Error("Max retries exceeded");
-	};
-};
+		throw new Error('Max retries exceeded')
+	}
+}
 
-const apiClientWithRetry = new ApiClient("http://localhost:3000", {
-	fetchFn: retryFetch(3),
-});
+const apiClientWithRetry = new ApiClient('http://localhost:3000', {
+	fetchFn: retryFetch(3)
+})
 
 // Request/response interceptor
 const interceptorFetch = (input: RequestInfo | URL, init?: RequestInit) => {
@@ -220,20 +203,20 @@ const interceptorFetch = (input: RequestInfo | URL, init?: RequestInit) => {
 		...init,
 		headers: {
 			...init?.headers,
-			"X-Request-ID": crypto.randomUUID(),
-		},
-	};
+			'X-Request-ID': crypto.randomUUID()
+		}
+	}
 
 	return fetch(input, enhancedInit).then((response) => {
 		// Post-response logic
-		console.log(`Response status: ${response.status}`);
-		return response;
-	});
-};
+		console.log(`Response status: ${response.status}`)
+		return response
+	})
+}
 
-const apiClientWithInterceptor = new ApiClient("http://localhost:3000", {
-	fetchFn: interceptorFetch,
-});
+const apiClientWithInterceptor = new ApiClient('http://localhost:3000', {
+	fetchFn: interceptorFetch
+})
 ```
 
 ### Testing with Custom Fetch
@@ -242,44 +225,37 @@ const apiClientWithInterceptor = new ApiClient("http://localhost:3000", {
 // Mock fetch for testing
 const mockFetch = jest.fn().mockResolvedValue({
 	ok: true,
-	json: () => Promise.resolve({ data: { id: "123", name: "Test User" } }),
-});
+	json: () => Promise.resolve({ data: { id: '123', name: 'Test User' } })
+})
 
-const testApiClient = new ApiClient("http://test.com", {
-	fetchFn: mockFetch,
-});
+const testApiClient = new ApiClient('http://test.com', {
+	fetchFn: mockFetch
+})
 
 // Your test can now verify the mock was called
-expect(mockFetch).toHaveBeenCalledWith(
-	"http://test.com/api/v1/users/123",
-	expect.objectContaining({ method: "GET" }),
-);
+expect(mockFetch).toHaveBeenCalledWith('http://test.com/api/v1/users/123', expect.objectContaining({ method: 'GET' }))
 ```
 
 ## Hash-based Caching
 
-On startup the plugin hashes all controller source files (SHA-256) and stores
-the checksum in `.rpc-checksum` inside the output directory. On subsequent runs,
-if the hash matches and the expected output files already exist, the expensive
-analysis and generation pipeline is skipped entirely. This significantly reduces
-startup time in large projects.
+On startup the plugin hashes all controller source files (SHA-256) and stores the checksum in `.rpc-checksum` inside the
+output directory. On subsequent runs, if the hash matches and the expected output files already exist, the expensive
+analysis and generation pipeline is skipped entirely. This significantly reduces startup time in large projects.
 
 Caching is automatic and requires no configuration. To force regeneration:
 
 ```typescript
 // Explicit cache bypass
-await rpcPlugin.analyze({ force: true });
+await rpcPlugin.analyze({ force: true })
 
 // Respect the cache (same behavior as automatic startup)
-await rpcPlugin.analyze({ force: false });
+await rpcPlugin.analyze({ force: false })
 ```
 
-You can also delete `.rpc-checksum` from the output directory to clear the
-cache.
+You can also delete `.rpc-checksum` from the output directory to clear the cache.
 
-> **Note:** The hash covers controller files matched by the `controllerPattern`
-> glob. If you only change a DTO/model file that lives outside that pattern, the
-> cache won't invalidate automatically. Use `analyze()` or delete
+> **Note:** The hash covers controller files matched by the `controllerPattern` glob. If you only change a DTO/model
+> file that lives outside that pattern, the cache won't invalidate automatically. Use `analyze()` or delete
 > `.rpc-checksum` in that case.
 
 ## How It Works
@@ -320,40 +296,21 @@ export class ApiClient {
 	get users() {
 		return {
 			create: async <Result = User>(
-				options: RequestOptions<
-					{ name: string; email: string },
-					undefined,
-					undefined,
-					undefined
-				>,
+				options: RequestOptions<{ name: string; email: string }, undefined, undefined, undefined>
 			) => {
-				return this.request<Result>("POST", `/api/v1/users/`, options);
+				return this.request<Result>('POST', `/api/v1/users/`, options)
 			},
 			list: async <Result = User[]>(
-				options?: RequestOptions<
-					undefined,
-					{ page: number; limit: number },
-					undefined,
-					undefined
-				>,
+				options?: RequestOptions<undefined, { page: number; limit: number }, undefined, undefined>
 			) => {
-				return this.request<Result>("GET", `/api/v1/users/`, options);
+				return this.request<Result>('GET', `/api/v1/users/`, options)
 			},
 			getById: async <Result = User>(
-				options: RequestOptions<
-					undefined,
-					{ id: string },
-					undefined,
-					undefined
-				>,
+				options: RequestOptions<undefined, { id: string }, undefined, undefined>
 			) => {
-				return this.request<Result>(
-					"GET",
-					`/api/v1/users/:id`,
-					options,
-				);
-			},
-		};
+				return this.request<Result>('GET', `/api/v1/users/:id`, options)
+			}
+		}
 	}
 }
 
@@ -362,29 +319,27 @@ export type RequestOptions<
 	TParams = undefined,
 	TQuery = undefined,
 	TBody = undefined,
-	THeaders = undefined,
-> =
-	& (TParams extends undefined ? object : { params: TParams })
-	& (TQuery extends undefined ? object : { query: TQuery })
-	& (TBody extends undefined ? object : { body: TBody })
-	& (THeaders extends undefined ? object : { headers: THeaders });
+	THeaders = undefined
+> = (TParams extends undefined ? object : { params: TParams }) &
+	(TQuery extends undefined ? object : { query: TQuery }) &
+	(TBody extends undefined ? object : { body: TBody }) &
+	(THeaders extends undefined ? object : { headers: THeaders })
 ```
 
 ## Plugin Lifecycle
 
-The plugin automatically generates files when your HonestJS application starts
-up (if `generateOnInit` is true). On subsequent startups, the hash-based cache
-will skip regeneration if controller files haven't changed.
+The plugin automatically generates files when your HonestJS application starts up (if `generateOnInit` is true). On
+subsequent startups, the hash-based cache will skip regeneration if controller files haven't changed.
 
 You can also manually trigger generation:
 
 ```typescript
-const rpcPlugin = new RPCPlugin();
-await rpcPlugin.analyze({ force: true }); // Force regeneration (bypasses cache)
-await rpcPlugin.analyze({ force: false }); // Respect cache
+const rpcPlugin = new RPCPlugin()
+await rpcPlugin.analyze({ force: true }) // Force regeneration (bypasses cache)
+await rpcPlugin.analyze({ force: false }) // Respect cache
 
 // Analyze-only mode (no files generated, diagnostics still emitted)
-await rpcPlugin.analyze({ force: true, dryRun: true });
+await rpcPlugin.analyze({ force: true, dryRun: true })
 ```
 
 ## Advanced Usage
@@ -395,9 +350,9 @@ If your controllers follow a different file structure:
 
 ```typescript
 new RPCPlugin({
-	controllerPattern: "src/controllers/**/*.controller.ts",
-	outputDir: "./src/generated/api",
-});
+	controllerPattern: 'src/controllers/**/*.controller.ts',
+	outputDir: './src/generated/api'
+})
 ```
 
 ### Manual Generation Control
@@ -406,11 +361,11 @@ Disable automatic generation and control when files are generated:
 
 ```typescript
 const rpcPlugin = new RPCPlugin({
-	generateOnInit: false,
-});
+	generateOnInit: false
+})
 
 // Later in your code
-await rpcPlugin.analyze();
+await rpcPlugin.analyze()
 ```
 
 ## Integration with HonestJS
@@ -420,32 +375,32 @@ await rpcPlugin.analyze();
 Here's how your controllers should be structured for optimal RPC generation:
 
 ```typescript
-import { Body, Controller, Get, Param, Post, Query } from "honestjs";
+import { Body, Controller, Get, Param, Post, Query } from 'honestjs'
 
 interface CreateUserDto {
-	name: string;
-	email: string;
+	name: string
+	email: string
 }
 
 interface ListUsersQuery {
-	page?: number;
-	limit?: number;
+	page?: number
+	limit?: number
 }
 
-@Controller("/users")
+@Controller('/users')
 export class UsersController {
-	@Post("/")
+	@Post('/')
 	async create(@Body() createUserDto: CreateUserDto): Promise<User> {
 		// Implementation
 	}
 
-	@Get("/")
+	@Get('/')
 	async list(@Query() query: ListUsersQuery): Promise<User[]> {
 		// Implementation
 	}
 
-	@Get("/:id")
-	async getById(@Param("id") id: string): Promise<User> {
+	@Get('/:id')
+	async getById(@Param('id') id: string): Promise<User> {
 		// Implementation
 	}
 }
@@ -456,13 +411,13 @@ export class UsersController {
 Ensure your controllers are properly registered in modules:
 
 ```typescript
-import { Module } from "honestjs";
-import { UsersController } from "./users.controller";
-import { UsersService } from "./users.service";
+import { Module } from 'honestjs'
+import { UsersController } from './users.controller'
+import { UsersService } from './users.service'
 
 @Module({
 	controllers: [UsersController],
-	services: [UsersService],
+	services: [UsersService]
 })
 export class UsersModule {}
 ```
@@ -474,13 +429,13 @@ The generated client includes comprehensive error handling:
 ```typescript
 try {
 	const user = await apiClient.users.create({
-		body: { name: "John", email: "john@example.com" },
-	});
+		body: { name: 'John', email: 'john@example.com' }
+	})
 } catch (error) {
 	if (error instanceof ApiError) {
-		console.error(`API Error ${error.statusCode}: ${error.message}`);
+		console.error(`API Error ${error.statusCode}: ${error.message}`)
 	} else {
-		console.error("Unexpected error:", error);
+		console.error('Unexpected error:', error)
 	}
 }
 ```

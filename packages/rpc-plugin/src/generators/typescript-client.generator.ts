@@ -389,13 +389,9 @@ ${this.generateControllerMethods(controllerGroups)}
 	} {
 		const parameters = route.parameters || []
 
-		const pathParams = parameters
-			.filter((p) => p.decoratorType === 'param')
-			.map((p) => ({ ...p, required: true }))
+		const pathParams = parameters.filter((p) => p.decoratorType === 'param').map((p) => ({ ...p, required: true }))
 
-		const bodyParams = parameters
-			.filter((p) => p.decoratorType === 'body')
-			.map((p) => ({ ...p, required: true }))
+		const bodyParams = parameters.filter((p) => p.decoratorType === 'body').map((p) => ({ ...p, required: true }))
 
 		const queryParams = parameters
 			.filter((p) => p.decoratorType === 'query')

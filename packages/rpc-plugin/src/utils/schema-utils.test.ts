@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-	generateTypeScriptInterface,
-	mapJsonSchemaTypeToTypeScript
-} from './schema-utils'
+import { generateTypeScriptInterface, mapJsonSchemaTypeToTypeScript } from './schema-utils'
 
 describe('schema-utils', () => {
 	describe('mapJsonSchemaTypeToTypeScript', () => {
@@ -29,9 +26,7 @@ describe('schema-utils', () => {
 		})
 
 		it('maps object type', () => {
-			expect(mapJsonSchemaTypeToTypeScript({ type: 'object' })).toBe(
-				'Record<string, any>'
-			)
+			expect(mapJsonSchemaTypeToTypeScript({ type: 'object' })).toBe('Record<string, any>')
 		})
 
 		it('returns any for unknown or missing type', () => {

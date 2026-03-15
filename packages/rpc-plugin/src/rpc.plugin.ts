@@ -224,7 +224,9 @@ export class RPCPlugin implements IPlugin {
 			warnings.push(...this.schemaGenerator.getWarnings())
 
 			if (this.failOnRouteAnalysisWarning && this.routeAnalyzer.getWarnings().length > 0) {
-				throw new Error(`Route analysis warnings encountered in strict mode: ${this.routeAnalyzer.getWarnings().join('; ')}`)
+				throw new Error(
+					`Route analysis warnings encountered in strict mode: ${this.routeAnalyzer.getWarnings().join('; ')}`
+				)
 			}
 
 			// Step 3: Run configured generators

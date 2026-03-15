@@ -18,9 +18,7 @@ describe('path-utils', () => {
 		})
 
 		it('replaces :param placeholder when param has data ":id"', () => {
-			const params = [
-				{ data: ':id', index: 0, name: 'param', factory: () => null }
-			] as any
+			const params = [{ data: ':id', index: 0, name: 'param', factory: () => null }] as any
 			expect(buildFullPath('/users/:id', params)).toBe('/users/${id}')
 		})
 	})

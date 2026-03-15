@@ -21,7 +21,9 @@
 		"clean": "rm -rf dist",
 		"type-check": "tsc --noEmit",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"lint": "prettier --check .",
+		"prepack": "pnpm run build"
 	},
 	"keywords": [
 		"honestjs",
@@ -41,8 +43,8 @@
 		"ts-morph": "^26.0.0"
 	},
 	"devDependencies": {
-		"honestjs": "^0.1.9",
-		"hono": "^4.12.6",
+		"honestjs": "^0.1.10",
+		"hono": "^4.12.8",
 		"vitest": "^3.2.4"
 	},
 	"peerDependencies": {

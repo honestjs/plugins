@@ -1,21 +1,8 @@
 {
+	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"target": "ESNext",
-		"module": "ESNext",
-		"moduleResolution": "node",
-		"lib": ["ESNext", "DOM"],
-		"declaration": true,
-		"declarationMap": true,
 		"outDir": "dist",
-		"rootDir": "src",
-		"sourceMap": true,
-		"strict": true,
-		"skipLibCheck": true,
-		"esModuleInterop": true,
-		"allowSyntheticDefaultImports": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"isolatedModules": true
+		"rootDir": "src"
 	},
 	"include": ["src/**/*.ts"],
 	"exclude": ["dist", "node_modules", "**/*.test.ts", "**/*.spec.ts"]

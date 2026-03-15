@@ -4,12 +4,10 @@ This is a monorepo for the HonestJS plugins packages.
 
 ## Packages
 
-- `@honestjs/rpc-plugin` - Analyzes HonestJS controllers and generates type-safe
-  RPC clients. Publishes the analyzed artifact to application context (default
-  key: `rpc.artifact`) for consumers.
-- `@honestjs/api-docs-plugin` - Serves OpenAPI JSON and Swagger UI. Accepts
-  an artifact object (`{ routes, schemas }`) or a context key string (for
-  example `rpc.artifact`) and generates OpenAPI from it.
+- `@honestjs/rpc-plugin` - Analyzes HonestJS controllers and generates type-safe RPC clients. Publishes the analyzed
+  artifact to application context (default key: `rpc.artifact`) for consumers.
+- `@honestjs/api-docs-plugin` - Serves OpenAPI JSON and Swagger UI. Accepts an artifact object (`{ routes, schemas }`)
+  or a context key string (for example `rpc.artifact`) and generates OpenAPI from it.
 
 ### RPC + API Docs integration
 
@@ -25,8 +23,8 @@ const { hono } = await Application.create(AppModule, {
 
 ## Help Wanted
 
-We're actively seeking contributions to help grow and improve the HonestJS
-plugins ecosystem! Here are some areas where we'd love your help:
+We're actively seeking contributions to help grow and improve the HonestJS plugins ecosystem! Here are some areas where
+we'd love your help:
 
 ### 🔧 New 3rd Party Plugins Packages
 
@@ -46,9 +44,8 @@ plugins ecosystem! Here are some areas where we'd love your help:
 - Create example projects and demos
 - Improve packages documentation
 
-If you're interested in contributing, please check out our issues or start a
-discussion! We welcome developers of all skill levels and are happy to provide
-guidance.
+If you're interested in contributing, please check out our issues or start a discussion! We welcome developers of all
+skill levels and are happy to provide guidance.
 
 ## License
 

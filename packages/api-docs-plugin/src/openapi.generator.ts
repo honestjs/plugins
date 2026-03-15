@@ -87,7 +87,7 @@ export function fromArtifactSync(
 		const routePath =
 			route.prefix != null || route.version != null || route.route != null
 				? buildFallbackPath(route)
-				: (route.fullPath || buildFallbackPath(route))
+				: route.fullPath || buildFallbackPath(route)
 		const openApiPath = toOpenApiPath(routePath)
 		const method = route.method.toLowerCase() as keyof OpenAPIV3.PathItemObject
 		if (!spec.paths[openApiPath]) {
@@ -174,9 +174,7 @@ function buildRequestBody(
 
 	const typeName = extractBaseTypeName(bodyParam.type)
 	const schema: OpenAPIV3.ReferenceObject | OpenAPIV3.SchemaObject =
-		typeName && schemaMap[typeName]
-			? { $ref: `#/components/schemas/${typeName}` }
-			: { type: 'object' as const }
+		typeName && schemaMap[typeName] ? { $ref: `#/components/schemas/${typeName}` } : { type: 'object' as const }
 
 	return {
 		required: true,

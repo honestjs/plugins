@@ -63,9 +63,7 @@ describe('TypeScriptClientGenerator', () => {
 		expect(result.clientFile).toMatch(/client\.ts$/)
 		expect(result.generator).toBe('typescript-client')
 		expect(result).toHaveProperty('generatedAt')
-		expect(result.generatedAt).toMatch(
-			/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
-		)
+		expect(result.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
 	})
 
 	it('writes client file to outputDir', async () => {
