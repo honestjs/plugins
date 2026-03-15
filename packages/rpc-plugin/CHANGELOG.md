@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.6.1
+
+### Patch Changes
+
+- 32de849: Update honestjs dependency to version 0.1.11
+
 ## 1.6.0
 
 ### Minor Changes
