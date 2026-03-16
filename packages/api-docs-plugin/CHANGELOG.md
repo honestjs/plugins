@@ -1,5 +1,11 @@
 # @honestjs/api-docs-plugin
 
+## 1.2.1
+
+### Patch Changes
+
+- 95d5189: Update honestjs dependency to version 0.1.14
+
 ## 1.2.0
 
 ### Minor Changes
