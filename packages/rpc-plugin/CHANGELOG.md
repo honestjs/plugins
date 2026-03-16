@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.7.0
+
+### Minor Changes
+
+- 2fd0d6b: Update route analysis to include registered routes
+
 ## 1.6.1
 
 ### Patch Changes
