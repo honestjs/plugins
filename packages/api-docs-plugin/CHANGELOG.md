@@ -1,5 +1,11 @@
 # @honestjs/api-docs-plugin
 
+## 1.2.0
+
+### Minor Changes
+
+- 2fd0d6b: Update dependencies
+
 ## 1.1.1
 
 ### Patch Changes
