@@ -45,7 +45,7 @@
 	"devDependencies": {
 		"honestjs": "^0.1.14",
 		"hono": "^4.12.8",
-		"vitest": "^3.2.4"
+		"vitest": "^4.1.0"
 	},
 	"peerDependencies": {
 		"honestjs": "^0.1.11",

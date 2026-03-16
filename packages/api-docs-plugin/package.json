@@ -43,7 +43,7 @@
 		"honestjs": "^0.1.14",
 		"hono": "^4.12.8",
 		"reflect-metadata": "^0.2.2",
-		"vitest": "^3.2.4"
+		"vitest": "^4.1.0"
 	},
 	"dependencies": {
 		"openapi-types": "^12.1.3"
