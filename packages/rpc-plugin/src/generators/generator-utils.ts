@@ -1,5 +1,4 @@
 import type { ControllerGroups, ExtendedRouteInfo } from '../types/route.types'
-import { buildFullApiPath } from '../utils/path-utils'
 import { safeToString } from '../utils/string-utils'
 
 /**
@@ -17,21 +16,4 @@ export function groupRoutesByController(routes: readonly ExtendedRouteInfo[]): C
 	}
 
 	return groups
-}
-
-/**
- * Builds a normalized request path where parameter placeholders are rewritten
- * to use parameter names inferred by analysis.
- */
-export function buildNormalizedRequestPath(route: ExtendedRouteInfo): string {
-	let requestPath = buildFullApiPath(route)
-
-	for (const parameter of route.parameters ?? []) {
-		if (parameter.decoratorType !== 'param') continue
-
-		const placeholder = `:${String(parameter.data ?? parameter.name)}`
-		requestPath = requestPath.replace(placeholder, `:${parameter.name}`)
-	}
-
-	return requestPath
 }
