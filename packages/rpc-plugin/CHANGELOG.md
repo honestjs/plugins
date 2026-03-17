@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.7.2
+
+### Patch Changes
+
+- fd63db8: Ensure request parameters types and names are correct with intersection support
+
 ## 1.7.1
 
 ### Patch Changes
