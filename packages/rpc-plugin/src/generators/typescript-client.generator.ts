@@ -4,7 +4,7 @@ import type { ControllerGroups, ExtendedRouteInfo, RouteParameter } from '../typ
 import type { RPCGenerator, RPCGeneratorContext } from '../types/generator.types'
 import type { GeneratedClientInfo, SchemaInfo } from '../types/schema.types'
 import { camelCase, safeToString } from '../utils/string-utils'
-import { buildNormalizedRequestPath, groupRoutesByController } from './generator-utils'
+import { groupRoutesByController } from './generator-utils'
 
 /**
  * Built-in generator for TypeScript RPC clients.
@@ -280,47 +280,9 @@ ${this.generateControllerMethods(controllerGroups)}
 				// Generate the method signature with proper typing
 				methods += `			${methodName}: async <Result = ${returnType}>(options${hasRequiredParams ? '' : '?'}: RequestOptions<`
 
-				// Path parameters type
-				if (pathParams.length > 0) {
-					const pathParamTypes = pathParams.map((p) => {
-						const paramName = p.name
-						const paramType = p.type || 'any'
-						return `${paramName}: ${paramType}`
-					})
-					methods += `{ ${pathParamTypes.join(', ')} }`
-				} else {
-					methods += 'undefined'
-				}
-
-				methods += ', '
-
-				// Query parameters type
-				if (queryParams.length > 0) {
-					const queryParamTypes = queryParams.map((p) => {
-						const paramName = p.name
-						const paramType = p.type || 'any'
-						return `${paramName}: ${paramType}`
-					})
-					methods += `{ ${queryParamTypes.join(', ')} }`
-				} else {
-					methods += 'undefined'
-				}
-
-				methods += ', '
-
-				// Body type
-				if (bodyParams.length > 0) {
-					const bodyParamTypes = bodyParams.map((p) => {
-						const paramType = p.type || 'any'
-						return paramType
-					})
-					// Use the first body parameter type, not 'any'
-					methods += bodyParamTypes[0] || 'any'
-				} else {
-					methods += 'undefined'
-				}
-
-				methods += ', '
+				methods += `${this.generateParameterType(pathParams)}, `
+				methods += `${this.generateParameterType(queryParams)}, `
+				methods += `${this.generateParameterType(bodyParams)}, `
 
 				// Headers type - always optional for now, but could be made conditional
 				methods += 'undefined'
@@ -328,10 +290,7 @@ ${this.generateControllerMethods(controllerGroups)}
 				methods += `>) => {
 `
 
-				// Build normalized path with stable parameter placeholders
-				const requestPath = buildNormalizedRequestPath(route)
-
-				methods += `				return this.request<Result>('${httpMethod.toUpperCase()}', \`${requestPath}\`, options)
+				methods += `				return this.request<Result>('${httpMethod.toUpperCase()}', \`${route.fullPath}\`, options)
 `
 				methods += `			},
 `
@@ -398,5 +357,33 @@ ${this.generateControllerMethods(controllerGroups)}
 			.map((p) => ({ ...p, required: p.required === true }))
 
 		return { pathParams, queryParams, bodyParams }
+	}
+
+	/**
+	 * Generate parameter typing with intersection support
+	 */
+	private generateParameterType(params: readonly RouteParameter[]): string {
+		if (!params?.length) return 'undefined'
+
+		const paramsNamed: string[] = []
+		const paramsIntersection: string[] = []
+
+		params.forEach((p) => {
+			// data is missing from @Param() type intersection
+			if (!p.data) {
+				paramsIntersection.push(p.type)
+			} else {
+				const paramName = p.data
+				const paramType = p.type || 'any'
+				paramsNamed.push(`${paramName}: ${paramType}`)
+			}
+		})
+
+		const parsedNamed = paramsNamed.length ? `{ ${paramsNamed.join(', ')} }` : undefined
+		const parsedIntersection = paramsIntersection.length ? paramsIntersection.join(' & ') : undefined
+
+		if (parsedNamed && parsedIntersection) return `${parsedIntersection} & ${parsedNamed}`
+
+		return parsedNamed || parsedIntersection || 'undefined'
 	}
 }
