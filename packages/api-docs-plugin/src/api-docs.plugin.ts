@@ -62,7 +62,7 @@ export class ApiDocsPlugin implements IPlugin {
 		}
 	}
 
-	afterModulesRegistered = async (app: Application, hono: Hono): Promise<void> => {
+	beforeModulesRegistered = async (app: Application, hono: Hono): Promise<void> => {
 		this.app = app
 
 		hono.get(this.openApiRoute, async (c) => {
