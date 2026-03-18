@@ -99,4 +99,200 @@ describe('TypeScriptClientGenerator', () => {
 		expect(content).toContain('/api/v1/users/:id')
 		expect(content).toContain('getById')
 	})
+
+	it('generate() interface method delegates to generateClient', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		const result = await generator.generate({
+			outputDir,
+			routes: [mockRoute],
+			schemas: [mockSchema]
+		})
+
+		expect(result.generator).toBe('typescript-client')
+		expect(result.clientFile).toBeDefined()
+		expect(fs.existsSync(result.clientFile as string)).toBe(true)
+	})
+
+	it('groups routes by controller into getter methods', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const routes: ExtendedRouteInfo[] = [
+			{ ...mockRoute, controller: 'UsersController', handler: 'findAll', fullPath: '/users' },
+			{ ...mockRoute, controller: 'PostsController', handler: 'list', fullPath: '/posts' }
+		]
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		await generator.generateClient(routes, [])
+
+		const content = fs.readFileSync(path.join(outputDir, 'client.ts'), 'utf-8')
+		expect(content).toContain('get users()')
+		expect(content).toContain('get posts()')
+		expect(content).toContain('findAll')
+		expect(content).toContain('list')
+	})
+
+	it('generates empty client for no routes', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		const result = await generator.generateClient([], [])
+
+		expect(result.clientFile).toBeDefined()
+		const content = fs.readFileSync(result.clientFile as string, 'utf-8')
+		expect(content).toContain('export class ApiClient')
+		expect(content).toContain('No schemas available')
+	})
+
+	it('includes schema type interfaces when schemas provided', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const schemas: SchemaInfo[] = [
+			{
+				type: 'UserDto',
+				schema: {
+					definitions: {
+						UserDto: {
+							properties: { id: { type: 'string' } },
+							required: ['id']
+						}
+					}
+				},
+				typescriptType: 'export interface UserDto {\n  id: string\n}'
+			}
+		]
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		await generator.generateClient([], schemas)
+
+		const content = fs.readFileSync(path.join(outputDir, 'client.ts'), 'utf-8')
+		expect(content).toContain('export interface UserDto')
+	})
+
+	it('handles routes with query parameters', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const route: ExtendedRouteInfo = {
+			...mockRoute,
+			handler: 'search',
+			fullPath: '/users/search',
+			parameters: [
+				{
+					index: 0,
+					name: 'q',
+					decoratorType: 'query',
+					type: 'string',
+					required: true,
+					data: 'q',
+					factory: () => null
+				}
+			]
+		}
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		await generator.generateClient([route], [])
+
+		const content = fs.readFileSync(path.join(outputDir, 'client.ts'), 'utf-8')
+		expect(content).toContain('search')
+		expect(content).toContain('q: string')
+	})
+
+	it('handles routes with body parameters', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const route: ExtendedRouteInfo = {
+			...mockRoute,
+			method: 'POST',
+			handler: 'create',
+			fullPath: '/users',
+			parameters: [
+				{
+					index: 0,
+					name: 'dto',
+					decoratorType: 'body',
+					type: 'CreateUserDto',
+					required: true,
+					factory: () => null
+				}
+			]
+		}
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		await generator.generateClient([route], [])
+
+		const content = fs.readFileSync(path.join(outputDir, 'client.ts'), 'utf-8')
+		expect(content).toContain('create')
+		expect(content).toContain('POST')
+	})
+
+	it('extracts inner type from Promise<T> returns', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const route: ExtendedRouteInfo = {
+			...mockRoute,
+			handler: 'findAll',
+			fullPath: '/users',
+			returns: 'Promise<User[]>',
+			parameters: []
+		}
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		await generator.generateClient([route], [])
+
+		const content = fs.readFileSync(path.join(outputDir, 'client.ts'), 'utf-8')
+		expect(content).toContain('User[]')
+		expect(content).not.toContain('Promise<User[]>')
+	})
+
+	it('uses "any" as return type when returns is undefined', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const route: ExtendedRouteInfo = {
+			...mockRoute,
+			handler: 'doSomething',
+			fullPath: '/do',
+			returns: undefined,
+			parameters: []
+		}
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		await generator.generateClient([route], [])
+
+		const content = fs.readFileSync(path.join(outputDir, 'client.ts'), 'utf-8')
+		expect(content).toMatch(/Result\s*=\s*any/)
+	})
+
+	it('includes FetchFunction type in output', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		await generator.generateClient([], [])
+
+		const content = fs.readFileSync(path.join(outputDir, 'client.ts'), 'utf-8')
+		expect(content).toContain('export type FetchFunction')
+	})
+
+	it('generates multiple routes under the same controller getter', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const routes: ExtendedRouteInfo[] = [
+			{ ...mockRoute, controller: 'UsersController', handler: 'findAll', fullPath: '/users', method: 'GET', parameters: [] },
+			{ ...mockRoute, controller: 'UsersController', handler: 'create', fullPath: '/users', method: 'POST', parameters: [] },
+			{ ...mockRoute, controller: 'UsersController', handler: 'findOne', fullPath: '/users/:id', method: 'GET' }
+		]
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		await generator.generateClient(routes, [])
+
+		const content = fs.readFileSync(path.join(outputDir, 'client.ts'), 'utf-8')
+		const usersGetterCount = (content.match(/get users\(\)/g) || []).length
+		expect(usersGetterCount).toBe(1)
+		expect(content).toContain('findAll')
+		expect(content).toContain('create')
+		expect(content).toContain('findOne')
+	})
+
+	it('creates output directory if it does not exist', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const nestedDir = path.join(outputDir, 'nested', 'deep')
+		const generator = new TypeScriptClientGenerator(nestedDir)
+
+		await generator.generateClient([mockRoute], [mockSchema])
+
+		expect(fs.existsSync(path.join(nestedDir, 'client.ts'))).toBe(true)
+	})
 })

@@ -1,14 +1,7 @@
-import fs from 'fs'
-import os from 'os'
-import path from 'path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { Application, Module } from 'honestjs'
 import 'reflect-metadata'
 import { ApiDocsPlugin } from './api-docs.plugin'
-
-function createTempDir(prefix: string): string {
-	return fs.mkdtempSync(path.join(os.tmpdir(), prefix))
-}
 
 const minimalArtifact = {
 	routes: [
@@ -33,18 +26,6 @@ const versionedArtifact = {
 class TestModule {}
 
 describe('ApiDocsPlugin', () => {
-	const originalCwd = process.cwd()
-	const tempDirs: string[] = []
-
-	afterEach(() => {
-		process.chdir(originalCwd)
-		for (const dir of tempDirs) {
-			if (fs.existsSync(dir)) {
-				fs.rmSync(dir, { recursive: true })
-			}
-		}
-		tempDirs.length = 0
-	})
 
 	it('serves OpenAPI JSON from direct artifact', async () => {
 		const plugin = new ApiDocsPlugin({
@@ -169,5 +150,201 @@ describe('ApiDocsPlugin', () => {
 		const uiRes = await hono.request('/docs')
 		expect(uiRes.status).toBe(401)
 		expect(await uiRes.text()).toBe('blocked')
+	})
+
+	it('returns 403 when auth hook does not call next or return Response', async () => {
+		const plugin = new ApiDocsPlugin({
+			artifact: minimalArtifact,
+			onOpenApiRequest: () => {
+				// intentionally does nothing
+			},
+			onUiRequest: () => {
+				// intentionally does nothing
+			}
+		})
+		const { hono } = await Application.create(TestModule, { plugins: [plugin] })
+
+		const openApiRes = await hono.request('/openapi.json')
+		expect(openApiRes.status).toBe(403)
+		expect(await openApiRes.text()).toBe('Forbidden')
+
+		const uiRes = await hono.request('/docs')
+		expect(uiRes.status).toBe(403)
+		expect(await uiRes.text()).toBe('Forbidden')
+	})
+
+	it('caches spec by default (second request uses cached)', async () => {
+		let callCount = 0
+		const artifact = {
+			...minimalArtifact,
+			get routes() {
+				callCount++
+				return minimalArtifact.routes
+			}
+		}
+		const plugin = new ApiDocsPlugin({ artifact })
+		const { hono } = await Application.create(TestModule, { plugins: [plugin] })
+
+		const res1 = await hono.request('/openapi.json')
+		expect(res1.status).toBe(200)
+		const firstCallCount = callCount
+
+		const res2 = await hono.request('/openapi.json')
+		expect(res2.status).toBe(200)
+		expect(callCount).toBe(firstCallCount)
+	})
+
+	it('regenerates spec on each request when reloadOnRequest is true', async () => {
+		let callCount = 0
+		const originalRoutes = minimalArtifact.routes
+		const artifact = {
+			schemas: [] as const,
+			get routes() {
+				callCount++
+				return originalRoutes
+			}
+		}
+		const plugin = new ApiDocsPlugin({ artifact, reloadOnRequest: true })
+		const { hono } = await Application.create(TestModule, { plugins: [plugin] })
+
+		await hono.request('/openapi.json')
+		const afterFirst = callCount
+		await hono.request('/openapi.json')
+		expect(callCount).toBeGreaterThan(afterFirst)
+	})
+
+	it('returns 500 when context value is not a valid artifact shape', async () => {
+		const plugin = new ApiDocsPlugin({ artifact: 'bad.key' })
+		const { hono } = await Application.create(TestModule, {
+			plugins: [
+				{
+					plugin: plugin,
+					preProcessors: [
+						async (_app, _hono, ctx) => {
+							ctx.set('bad.key', { notRoutes: true })
+						}
+					]
+				}
+			]
+		})
+		const res = await hono.request('/openapi.json')
+		const json = await res.json()
+
+		expect(res.status).toBe(500)
+		expect(json.message).toContain('not a valid artifact')
+	})
+
+	it('passes description and servers through to generated spec', async () => {
+		const plugin = new ApiDocsPlugin({
+			artifact: minimalArtifact,
+			description: 'My test API description',
+			servers: [{ url: 'https://api.example.com', description: 'Prod' }]
+		})
+		const { hono } = await Application.create(TestModule, { plugins: [plugin] })
+		const res = await hono.request('/openapi.json')
+		const json = await res.json()
+
+		expect(res.status).toBe(200)
+		expect(json.info.description).toBe('My test API description')
+		expect(json.servers).toHaveLength(1)
+		expect(json.servers[0].url).toBe('https://api.example.com')
+	})
+
+	it('serves spec with schemas populated', async () => {
+		const artifactWithSchemas = {
+			routes: [
+				{
+					method: 'GET',
+					handler: 'getUser',
+					controller: 'UsersController',
+					fullPath: '/users/:id',
+					returns: 'User',
+					parameters: [
+						{ name: 'id', data: 'id', type: 'string', decoratorType: 'param', required: true }
+					]
+				}
+			],
+			schemas: [
+				{
+					type: 'User',
+					schema: {
+						definitions: {
+							User: {
+								type: 'object',
+								properties: { id: { type: 'string' }, name: { type: 'string' } }
+							}
+						}
+					}
+				}
+			]
+		}
+		const plugin = new ApiDocsPlugin({ artifact: artifactWithSchemas })
+		const { hono } = await Application.create(TestModule, { plugins: [plugin] })
+		const res = await hono.request('/openapi.json')
+		const json = await res.json()
+
+		expect(res.status).toBe(200)
+		expect(json.components.schemas.User).toBeDefined()
+		expect(json.paths['/users/{id}'].get.parameters).toHaveLength(1)
+		expect(json.paths['/users/{id}'].get.parameters[0].in).toBe('path')
+		expect(json.paths['/users/{id}'].get.responses['200'].content['application/json'].schema).toEqual({
+			$ref: '#/components/schemas/User'
+		})
+	})
+
+	it('serves on custom openApiRoute path', async () => {
+		const plugin = new ApiDocsPlugin({
+			artifact: minimalArtifact,
+			openApiRoute: '/api/spec'
+		})
+		const { hono } = await Application.create(TestModule, { plugins: [plugin] })
+
+		const res = await hono.request('/api/spec')
+		expect(res.status).toBe(200)
+		const json = await res.json()
+		expect(json.openapi).toBe('3.0.3')
+	})
+
+	it('serves Swagger UI on custom uiRoute path', async () => {
+		const plugin = new ApiDocsPlugin({
+			artifact: minimalArtifact,
+			uiRoute: '/swagger'
+		})
+		const { hono } = await Application.create(TestModule, { plugins: [plugin] })
+
+		const res = await hono.request('/swagger')
+		expect(res.status).toBe(200)
+		const html = await res.text()
+		expect(html).toContain('SwaggerUIBundle')
+	})
+
+	it('normalizes routes with trailing slashes', async () => {
+		const plugin = new ApiDocsPlugin({
+			artifact: minimalArtifact,
+			openApiRoute: '/spec/',
+			uiRoute: '/ui/'
+		})
+		const { hono } = await Application.create(TestModule, { plugins: [plugin] })
+
+		const specRes = await hono.request('/spec')
+		expect(specRes.status).toBe(200)
+
+		const uiRes = await hono.request('/ui')
+		expect(uiRes.status).toBe(200)
+	})
+
+	it('normalizes routes without leading slash', async () => {
+		const plugin = new ApiDocsPlugin({
+			artifact: minimalArtifact,
+			openApiRoute: 'spec.json',
+			uiRoute: 'docs'
+		})
+		const { hono } = await Application.create(TestModule, { plugins: [plugin] })
+
+		const specRes = await hono.request('/spec.json')
+		expect(specRes.status).toBe(200)
+
+		const docsRes = await hono.request('/docs')
+		expect(docsRes.status).toBe(200)
 	})
 })

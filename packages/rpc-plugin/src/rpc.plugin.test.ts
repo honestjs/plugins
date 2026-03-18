@@ -261,5 +261,334 @@ describe('RPCPlugin', () => {
 			expect(fs.existsSync(path.join(outputDir, 'rpc-diagnostics.json'))).toBe(true)
 			expect(plugin.getDiagnostics()?.dryRun).toBe(true)
 		})
+
+		it('analyze(true) forces regeneration', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-force-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			await plugin.analyze(true)
+			expect(plugin.getDiagnostics()?.cache).toBe('bypass')
+		})
+
+		it('analyze({}) defaults to force=true', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-default-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			await plugin.analyze({})
+			expect(plugin.getDiagnostics()?.cache).toBe('bypass')
+		})
+	})
+
+	describe('accessor methods', () => {
+		it('getRoutes returns analyzed routes', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-acc-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			expect(plugin.getRoutes()).toEqual([])
+
+			await plugin.analyze({ force: true, dryRun: true })
+			expect(Array.isArray(plugin.getRoutes())).toBe(true)
+		})
+
+		it('getSchemas returns analyzed schemas', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-acc-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			expect(plugin.getSchemas()).toEqual([])
+
+			await plugin.analyze({ force: true, dryRun: true })
+			expect(Array.isArray(plugin.getSchemas())).toBe(true)
+		})
+
+		it('getDiagnostics returns null before analysis', () => {
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated'),
+				generateOnInit: false
+			})
+
+			expect(plugin.getDiagnostics()).toBeNull()
+		})
+
+		it('getDiagnostics returns diagnostic info after analysis', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-diag-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			await plugin.analyze({ force: true, dryRun: true })
+			const diag = plugin.getDiagnostics()
+
+			expect(diag).not.toBeNull()
+			expect(diag!.generatedAt).toBeDefined()
+			expect(diag!.mode).toBe('best-effort')
+			expect(diag!.dryRun).toBe(true)
+			expect(typeof diag!.routesCount).toBe('number')
+			expect(typeof diag!.schemasCount).toBe('number')
+			expect(Array.isArray(diag!.warnings)).toBe(true)
+		})
+
+		it('getGenerationInfo returns null before generation', () => {
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated'),
+				generateOnInit: false
+			})
+
+			expect(plugin.getGenerationInfo()).toBeNull()
+		})
+
+		it('getGenerationInfos returns empty array before generation', () => {
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated'),
+				generateOnInit: false
+			})
+
+			expect(plugin.getGenerationInfos()).toEqual([])
+		})
+
+		it('getGenerationInfo returns info after non-dryRun analysis', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-geninfo-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			await plugin.analyze({ force: true, dryRun: false })
+			const info = plugin.getGenerationInfo()
+
+			expect(info).not.toBeNull()
+			expect(info!.generator).toBe('typescript-client')
+		})
+	})
+
+	describe('generateOnInit', () => {
+		it('does not run analysis when generateOnInit is false', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-noinit-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			const store = new Map<string, unknown>()
+			const app = {
+				getContext: () => ({
+					set: (key: string, value: unknown) => store.set(key, value),
+					get: () => undefined
+				}),
+				getRoutes: () => []
+			} as any
+
+			await plugin.afterModulesRegistered(app, {} as any)
+
+			expect(store.has('rpc.artifact')).toBe(false)
+			expect(plugin.getDiagnostics()).toBeNull()
+		})
+	})
+
+	describe('dispose', () => {
+		it('can be called safely without prior analysis', () => {
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated'),
+				generateOnInit: false
+			})
+
+			expect(() => plugin.dispose()).not.toThrow()
+		})
+
+		it('can be called multiple times safely', () => {
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated'),
+				generateOnInit: false
+			})
+
+			expect(() => {
+				plugin.dispose()
+				plugin.dispose()
+			}).not.toThrow()
+		})
+	})
+
+	describe('disk artifact round-trip', () => {
+		it('writes artifact and diagnostics to disk on analysis', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-disk-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			await plugin.analyze({ force: true })
+
+			expect(fs.existsSync(path.join(outputDir, 'rpc-artifact.json'))).toBe(true)
+			expect(fs.existsSync(path.join(outputDir, 'rpc-diagnostics.json'))).toBe(true)
+
+			const artifact = JSON.parse(fs.readFileSync(path.join(outputDir, 'rpc-artifact.json'), 'utf-8'))
+			expect(artifact.artifactVersion).toBe('1')
+			expect(Array.isArray(artifact.routes)).toBe(true)
+			expect(Array.isArray(artifact.schemas)).toBe(true)
+		})
+
+		it('writes checksum file after generation', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-checksum-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			await plugin.analyze({ force: true })
+
+			expect(fs.existsSync(path.join(outputDir, '.rpc-checksum'))).toBe(true)
+		})
+
+		it('does not write artifact or checksum on dryRun', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-dryrun-disk-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			await plugin.analyze({ force: true, dryRun: true })
+
+			expect(fs.existsSync(path.join(outputDir, 'rpc-artifact.json'))).toBe(false)
+			expect(fs.existsSync(path.join(outputDir, '.rpc-checksum'))).toBe(false)
+			expect(fs.existsSync(path.join(outputDir, 'rpc-diagnostics.json'))).toBe(true)
+		})
+	})
+
+	describe('caching behavior', () => {
+		it('reports cache miss on first analysis with force=false', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-cache-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			await plugin.analyze({ force: false })
+			expect(plugin.getDiagnostics()?.cache).toBe('miss')
+		})
+
+		it('reports cache bypass when force=true', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-cache-bypass-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			await plugin.analyze({ force: true })
+			expect(plugin.getDiagnostics()?.cache).toBe('bypass')
+		})
+	})
+
+	describe('mode configuration', () => {
+		it('defaults to best-effort mode', () => {
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated')
+			})
+
+			expect((plugin as any).mode).toBe('best-effort')
+		})
+
+		it('accepts strict mode', () => {
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated'),
+				mode: 'strict'
+			})
+
+			expect((plugin as any).mode).toBe('strict')
+		})
+
+		it('sets failOnSchemaError=true in strict mode by default', () => {
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated'),
+				mode: 'strict'
+			})
+
+			expect((plugin as any).failOnSchemaError).toBe(true)
+		})
+
+		it('sets failOnRouteAnalysisWarning=true in strict mode by default', () => {
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated'),
+				mode: 'strict'
+			})
+
+			expect((plugin as any).failOnRouteAnalysisWarning).toBe(true)
+		})
+
+		it('allows overriding failOnSchemaError in strict mode', () => {
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated'),
+				mode: 'strict',
+				failOnSchemaError: false
+			})
+
+			expect((plugin as any).failOnSchemaError).toBe(false)
+		})
+	})
+
+	describe('logLevel configuration', () => {
+		it('defaults to info logLevel', () => {
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated')
+			})
+
+			expect((plugin as any).logLevel).toBe('info')
+		})
+
+		it('accepts silent logLevel', () => {
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir: path.join(__dirname, '..', 'generated'),
+				logLevel: 'silent'
+			})
+
+			expect((plugin as any).logLevel).toBe('silent')
+		})
 	})
 })
