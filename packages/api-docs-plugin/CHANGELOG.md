@@ -1,5 +1,11 @@
 # @honestjs/api-docs-plugin
 
+## 1.2.2
+
+### Patch Changes
+
+- faf0782: Use beforeModulesRegistered instead of afterModulesRegistered
+
 ## 1.2.1
 
 ### Patch Changes
