@@ -145,6 +145,48 @@ describe('RPCPlugin', () => {
 					})
 			).toThrow(/preAnalysisFilters entries must be functions/)
 		})
+
+		it('throws when generator does not support current plugin API version', () => {
+			const incompatibleGenerator: RPCGenerator = {
+				name: 'legacy-generator',
+				supportedApiVersions: ['0'],
+				generate: vi.fn(async () => ({
+					generator: 'legacy-generator',
+					generatedAt: new Date().toISOString(),
+					outputFiles: []
+				}))
+			}
+
+			expect(
+				() =>
+					new RPCPlugin({
+						tsConfigPath: validTsConfigPath,
+						outputDir: path.join(__dirname, '..', 'generated'),
+						generators: [incompatibleGenerator]
+					})
+			).toThrow(/does not support RPC plugin API version 1/)
+		})
+
+		it('throws when generator requires unsupported capability', () => {
+			const incompatibleGenerator: RPCGenerator = {
+				name: 'strict-generator',
+				requiredCapabilities: ['routes', 'schemas', 'unknown-capability' as any],
+				generate: vi.fn(async () => ({
+					generator: 'strict-generator',
+					generatedAt: new Date().toISOString(),
+					outputFiles: []
+				}))
+			}
+
+			expect(
+				() =>
+					new RPCPlugin({
+						tsConfigPath: validTsConfigPath,
+						outputDir: path.join(__dirname, '..', 'generated'),
+						generators: [incompatibleGenerator]
+					})
+			).toThrow(/requires unsupported capability "unknown-capability"/)
+		})
 	})
 
 	describe('context artifact publishing', () => {
@@ -237,6 +279,12 @@ describe('RPCPlugin', () => {
 			const results = await (plugin as any).runGenerators()
 
 			expect(generate).toHaveBeenCalledTimes(1)
+			expect(generate).toHaveBeenCalledWith(
+				expect.objectContaining({
+					pluginApiVersion: '1',
+					pluginCapabilities: expect.arrayContaining(['routes', 'schemas'])
+				})
+			)
 			expect(results).toHaveLength(1)
 			expect(results[0]?.generator).toBe('custom-generator')
 		})

@@ -19,4 +19,4 @@ export type { GeneratedClientInfo, RpcArtifact, SchemaInfo } from './schema.type
 
 export type { ApiError, FetchFunction, RequestInterceptor, RequestOptions, ResponseInterceptor } from './client.types'
 
-export type { RPCGenerator, RPCGeneratorContext } from './generator.types'
+export type { RPCGenerator, RPCGeneratorCapability, RPCGeneratorContext } from './generator.types'

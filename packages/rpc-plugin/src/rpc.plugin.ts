@@ -12,10 +12,25 @@ import { writeJsonAtomic } from './utils/atomic-file-utils'
 import { AnalysisGraphService } from './services/analysis-graph.service'
 import { RouteAnalyzerService } from './services/route-analyzer.service'
 import { SchemaGeneratorService } from './services/schema-generator.service'
-import type { ExtendedRouteInfo, GeneratedClientInfo, RPCGenerator, SchemaInfo } from './types'
+import type {
+	ExtendedRouteInfo,
+	GeneratedClientInfo,
+	RPCGenerator,
+	RPCGeneratorCapability,
+	SchemaInfo
+} from './types'
 
 export type RPCMode = 'strict' | 'best-effort'
 export type RPCLogLevel = 'silent' | 'error' | 'warn' | 'info' | 'debug'
+
+export const RPC_PLUGIN_API_VERSION = '1'
+export const RPC_PLUGIN_CAPABILITIES: readonly RPCGeneratorCapability[] = [
+	'routes',
+	'schemas',
+	'analysis-hooks',
+	'atomic-persistence',
+	'client-interceptors'
+]
 
 export interface RPCDiagnostics {
 	readonly generatedAt: string
@@ -188,6 +203,31 @@ export class RPCPlugin implements IPlugin {
 			}
 			if (typeof generator.generate !== 'function') {
 				errors.push(`Generator "${generator.name || 'unknown'}" must implement generate(context)`)
+			}
+
+			const supportedVersions = generator.supportedApiVersions ?? [RPC_PLUGIN_API_VERSION]
+			if (!Array.isArray(supportedVersions) || supportedVersions.some((version) => typeof version !== 'string')) {
+				errors.push(`Generator "${generator.name || 'unknown'}" has invalid supportedApiVersions`)
+			} else if (!supportedVersions.includes(RPC_PLUGIN_API_VERSION)) {
+				errors.push(
+					`Generator "${generator.name || 'unknown'}" does not support RPC plugin API version ${RPC_PLUGIN_API_VERSION}`
+				)
+			}
+
+			const requiredCapabilities = generator.requiredCapabilities ?? []
+			if (
+				!Array.isArray(requiredCapabilities) ||
+				requiredCapabilities.some((capability) => typeof capability !== 'string')
+			) {
+				errors.push(`Generator "${generator.name || 'unknown'}" has invalid requiredCapabilities`)
+			} else {
+				for (const capability of requiredCapabilities) {
+					if (!RPC_PLUGIN_CAPABILITIES.includes(capability)) {
+						errors.push(
+							`Generator "${generator.name || 'unknown'}" requires unsupported capability "${capability}"`
+						)
+					}
+				}
 			}
 		}
 		for (const hook of this.preAnalysisFilters) {
@@ -502,7 +542,9 @@ export class RPCPlugin implements IPlugin {
 				generator.generate({
 					outputDir: this.outputDir,
 					routes: this.analyzedRoutes,
-					schemas: this.analyzedSchemas
+					schemas: this.analyzedSchemas,
+					pluginApiVersion: RPC_PLUGIN_API_VERSION,
+					pluginCapabilities: RPC_PLUGIN_CAPABILITIES
 				})
 			)
 		)

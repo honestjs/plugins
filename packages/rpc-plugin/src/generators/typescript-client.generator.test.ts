@@ -120,7 +120,9 @@ describe('TypeScriptClientGenerator', () => {
 		const result = await generator.generate({
 			outputDir,
 			routes: [mockRoute],
-			schemas: [mockSchema]
+			schemas: [mockSchema],
+			pluginApiVersion: '1',
+			pluginCapabilities: ['routes', 'schemas']
 		})
 
 		expect(result.generator).toBe('typescript-client')
