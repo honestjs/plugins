@@ -1,7 +1,7 @@
 import { createHash } from 'crypto'
 import { existsSync, readFileSync } from 'fs'
-import { mkdir, writeFile } from 'fs/promises'
 import path from 'path'
+import { writeJsonAtomic } from './atomic-file-utils'
 
 const CHECKSUM_FILENAME = '.rpc-checksum'
 
@@ -56,7 +56,6 @@ export function readChecksum(outputDir: string): ChecksumData | null {
  * Writes the checksum data to the output directory.
  */
 export async function writeChecksum(outputDir: string, data: ChecksumData): Promise<void> {
-	await mkdir(outputDir, { recursive: true })
 	const checksumPath = path.join(outputDir, CHECKSUM_FILENAME)
-	await writeFile(checksumPath, JSON.stringify(data, null, 2), 'utf-8')
+	await writeJsonAtomic(checksumPath, data)
 }

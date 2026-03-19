@@ -98,6 +98,19 @@ export type FetchFunction = (
 	init?: RequestInit
 ) => Promise<Response>
 
+/**
+ * Intercepts and can mutate outgoing requests.
+ */
+export type RequestInterceptor = (
+	url: string,
+	init: RequestInit
+) => { url: string; init: RequestInit } | Promise<{ url: string; init: RequestInit }>
+
+/**
+ * Intercepts incoming responses before payload handling.
+ */
+export type ResponseInterceptor = (response: Response) => Response | Promise<Response>
+
 // Generated DTOs and types from integrated Schema Generation
 ${this.generateSchemaTypes(schemas)}
 
@@ -144,12 +157,16 @@ export class ApiClient {
 	private baseUrl: string
 	private defaultHeaders: Record<string, string>
 	private fetchFn: FetchFunction
+	private requestInterceptors: readonly RequestInterceptor[]
+	private responseInterceptors: readonly ResponseInterceptor[]
 
 	constructor(
 		baseUrl: string, 
 		options: {
 			defaultHeaders?: Record<string, string>
 			fetchFn?: FetchFunction
+			requestInterceptors?: readonly RequestInterceptor[]
+			responseInterceptors?: readonly ResponseInterceptor[]
 		} = {}
 	) {
 		this.baseUrl = baseUrl.replace(/\\/$/, '')
@@ -158,6 +175,8 @@ export class ApiClient {
 			...options.defaultHeaders
 		}
 		this.fetchFn = options.fetchFn || fetch
+		this.requestInterceptors = options.requestInterceptors || []
+		this.responseInterceptors = options.responseInterceptors || []
 	}
 
 	/**
@@ -166,6 +185,38 @@ export class ApiClient {
 	setDefaultHeaders(headers: Record<string, string>): this {
 		this.defaultHeaders = { ...this.defaultHeaders, ...headers }
 		return this
+	}
+
+	/**
+	 * Add one request interceptor at runtime.
+	 */
+	addRequestInterceptor(interceptor: RequestInterceptor): this {
+		this.requestInterceptors = [...this.requestInterceptors, interceptor]
+		return this
+	}
+
+	/**
+	 * Add one response interceptor at runtime.
+	 */
+	addResponseInterceptor(interceptor: ResponseInterceptor): this {
+		this.responseInterceptors = [...this.responseInterceptors, interceptor]
+		return this
+	}
+
+	private async applyRequestInterceptors(url: string, init: RequestInit): Promise<{ url: string; init: RequestInit }> {
+		let current = { url, init }
+		for (const interceptor of this.requestInterceptors) {
+			current = await interceptor(current.url, current.init)
+		}
+		return current
+	}
+
+	private async applyResponseInterceptors(response: Response): Promise<Response> {
+		let current = response
+		for (const interceptor of this.responseInterceptors) {
+			current = await interceptor(current)
+		}
+		return current
 	}
 
 
@@ -211,7 +262,9 @@ export class ApiClient {
 		}
 
 		try {
-			const response = await this.fetchFn(url.toString(), requestOptions)
+			const interceptedRequest = await this.applyRequestInterceptors(url.toString(), requestOptions)
+			let response = await this.fetchFn(interceptedRequest.url, interceptedRequest.init)
+			response = await this.applyResponseInterceptors(response)
 
 			if (response.status === 204 || response.headers.get('content-length') === '0') {
 				if (!response.ok) {

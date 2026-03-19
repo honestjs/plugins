@@ -17,6 +17,19 @@ export type RequestOptions<
 export type FetchFunction = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 
 /**
+ * Intercepts and can mutate outgoing requests.
+ */
+export type RequestInterceptor = (
+	url: string,
+	init: RequestInit
+) => { url: string; init: RequestInit } | Promise<{ url: string; init: RequestInit }>
+
+/**
+ * Intercepts incoming responses before payload handling.
+ */
+export type ResponseInterceptor = (response: Response) => Response | Promise<Response>
+
+/**
  * API Error class
  */
 export class ApiError extends Error {

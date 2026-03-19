@@ -8,6 +8,7 @@ import { DEFAULT_OPTIONS, LOG_PREFIX } from './constants/defaults'
 import { TypeScriptClientGenerator } from './generators'
 import { computeHash, readChecksum, writeChecksum } from './utils/hash-utils'
 import { parseRpcArtifact, RPC_ARTIFACT_VERSION } from './utils/artifact-contract'
+import { writeJsonAtomic } from './utils/atomic-file-utils'
 import { AnalysisGraphService } from './services/analysis-graph.service'
 import { RouteAnalyzerService } from './services/route-analyzer.service'
 import { SchemaGeneratorService } from './services/schema-generator.service'
@@ -253,7 +254,7 @@ export class RPCPlugin implements IPlugin {
 			if (!dryRun) {
 				// Write checksum after successful generation
 				await writeChecksum(this.outputDir, { hash: computeHash(filePaths), files: filePaths })
-				this.writeArtifactToDisk()
+				await this.writeArtifactToDisk()
 			}
 
 			this.diagnostics = {
@@ -265,7 +266,7 @@ export class RPCPlugin implements IPlugin {
 				schemasCount: this.analyzedSchemas.length,
 				warnings
 			}
-			this.writeDiagnosticsToDisk()
+			await this.writeDiagnosticsToDisk()
 
 			this.log(
 				`✅ RPC analysis complete: ${this.analyzedRoutes.length} routes, ${this.analyzedSchemas.length} schemas`
@@ -355,20 +356,18 @@ export class RPCPlugin implements IPlugin {
 		return path.join(this.outputDir, 'rpc-diagnostics.json')
 	}
 
-	private writeArtifactToDisk(): void {
+	private async writeArtifactToDisk(): Promise<void> {
 		const artifact = {
 			artifactVersion: RPC_ARTIFACT_VERSION,
 			routes: this.analyzedRoutes,
 			schemas: this.analyzedSchemas
 		}
-		fs.mkdirSync(this.outputDir, { recursive: true })
-		fs.writeFileSync(this.getArtifactPath(), JSON.stringify(artifact))
+		await writeJsonAtomic(this.getArtifactPath(), artifact, false)
 	}
 
-	private writeDiagnosticsToDisk(): void {
+	private async writeDiagnosticsToDisk(): Promise<void> {
 		if (!this.diagnostics) return
-		fs.mkdirSync(this.outputDir, { recursive: true })
-		fs.writeFileSync(this.getDiagnosticsPath(), JSON.stringify(this.diagnostics, null, 2))
+		await writeJsonAtomic(this.getDiagnosticsPath(), this.diagnostics)
 	}
 
 	private loadArtifactFromDisk(): boolean {

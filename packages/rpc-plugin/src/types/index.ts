@@ -6,6 +6,6 @@ export type { RPCDiagnostics, RPCLogLevel, RPCMode, RPCPluginOptions } from '../
 
 export type { GeneratedClientInfo, RpcArtifact, SchemaInfo } from './schema.types'
 
-export type { ApiError, FetchFunction, RequestOptions } from './client.types'
+export type { ApiError, FetchFunction, RequestInterceptor, RequestOptions, ResponseInterceptor } from './client.types'
 
 export type { RPCGenerator, RPCGeneratorContext } from './generator.types'

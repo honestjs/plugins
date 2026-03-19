@@ -285,6 +285,32 @@ describe('TypeScriptClientGenerator', () => {
 		expect(content).toContain('export type FetchFunction')
 	})
 
+	it('includes request and response interceptor types in output', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		await generator.generateClient([], [])
+
+		const content = fs.readFileSync(path.join(outputDir, 'client.ts'), 'utf-8')
+		expect(content).toContain('export type RequestInterceptor')
+		expect(content).toContain('export type ResponseInterceptor')
+	})
+
+	it('wires interceptor options and runtime methods into ApiClient', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		await generator.generateClient([], [])
+
+		const content = fs.readFileSync(path.join(outputDir, 'client.ts'), 'utf-8')
+		expect(content).toContain('requestInterceptors?: readonly RequestInterceptor[]')
+		expect(content).toContain('responseInterceptors?: readonly ResponseInterceptor[]')
+		expect(content).toContain('addRequestInterceptor(interceptor: RequestInterceptor): this')
+		expect(content).toContain('addResponseInterceptor(interceptor: ResponseInterceptor): this')
+		expect(content).toContain('applyRequestInterceptors(url: string, init: RequestInit)')
+		expect(content).toContain('applyResponseInterceptors(response: Response)')
+	})
+
 	it('generates multiple routes under the same controller getter', async () => {
 		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
 		const routes: ExtendedRouteInfo[] = [
