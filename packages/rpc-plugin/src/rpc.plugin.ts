@@ -12,13 +12,7 @@ import { writeJsonAtomic } from './utils/atomic-file-utils'
 import { AnalysisGraphService } from './services/analysis-graph.service'
 import { RouteAnalyzerService } from './services/route-analyzer.service'
 import { SchemaGeneratorService } from './services/schema-generator.service'
-import type {
-	ExtendedRouteInfo,
-	GeneratedClientInfo,
-	RPCGenerator,
-	RPCGeneratorCapability,
-	SchemaInfo
-} from './types'
+import type { ExtendedRouteInfo, GeneratedClientInfo, RPCGenerator, RPCGeneratorCapability, SchemaInfo } from './types'
 
 export type RPCMode = 'strict' | 'best-effort'
 export type RPCLogLevel = 'silent' | 'error' | 'warn' | 'info' | 'debug'

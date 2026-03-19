@@ -1,5 +1,8 @@
 import type { ParameterMetadata, RouteInfo } from 'honestjs'
 
+// Re-export RouteInfo for convenience
+export type { RouteInfo }
+
 /**
  * Parameter metadata with enhanced type information
  */

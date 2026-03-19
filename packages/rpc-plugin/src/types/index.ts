@@ -1,5 +1,11 @@
 // Export all types from the different type files
-export type { ControllerGroups, ExtendedRouteInfo, ParameterMetadataWithType, RouteParameter } from './route.types'
+export type {
+	ControllerGroups,
+	ExtendedRouteInfo,
+	ParameterMetadataWithType,
+	RouteParameter,
+	RouteInfo
+} from './route.types'
 
 // Export plugin options from the main plugin
 export type {
