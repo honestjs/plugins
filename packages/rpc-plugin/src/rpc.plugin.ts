@@ -8,6 +8,7 @@ import { DEFAULT_OPTIONS, LOG_PREFIX } from './constants/defaults'
 import { TypeScriptClientGenerator } from './generators'
 import { computeHash, readChecksum, writeChecksum } from './utils/hash-utils'
 import { parseRpcArtifact, RPC_ARTIFACT_VERSION } from './utils/artifact-contract'
+import { AnalysisGraphService } from './services/analysis-graph.service'
 import { RouteAnalyzerService } from './services/route-analyzer.service'
 import { SchemaGeneratorService } from './services/schema-generator.service'
 import type { ExtendedRouteInfo, GeneratedClientInfo, RPCGenerator, SchemaInfo } from './types'
@@ -66,6 +67,7 @@ export class RPCPlugin implements IPlugin {
 	// Services
 	private readonly routeAnalyzer: RouteAnalyzerService
 	private readonly schemaGenerator: SchemaGeneratorService
+	private readonly analysisGraphBuilder: AnalysisGraphService
 	private readonly generators: readonly RPCGenerator[]
 
 	// Shared ts-morph project
@@ -100,6 +102,9 @@ export class RPCPlugin implements IPlugin {
 		this.schemaGenerator = new SchemaGeneratorService(this.controllerPattern, this.tsConfigPath, {
 			failOnSchemaError: this.failOnSchemaError,
 			onWarn: (message, details) => this.logWarn(message, details)
+		})
+		this.analysisGraphBuilder = new AnalysisGraphService({
+			customClassMatcher: this.customClassMatcher
 		})
 		this.generators = options.generators ?? [new TypeScriptClientGenerator(this.outputDir)]
 
@@ -184,8 +189,10 @@ export class RPCPlugin implements IPlugin {
 			this.project = new Project({ tsConfigFilePath: this.tsConfigPath })
 			this.project.addSourceFilesAtPaths([this.controllerPattern])
 
+			const controllerSourceFiles = this.project.getSourceFiles(this.controllerPattern)
+
 			// Hash check: skip if controller files are unchanged since last generation
-			const filePaths = this.project.getSourceFiles().map((f) => f.getFilePath())
+			const filePaths = controllerSourceFiles.map((f) => f.getFilePath())
 
 			if (!force) {
 				const currentHash = computeHash(filePaths)
@@ -216,13 +223,20 @@ export class RPCPlugin implements IPlugin {
 			this.analyzedSchemas = []
 			this.generatedInfos = []
 
+			const analysisGraph = this.analysisGraphBuilder.build(controllerSourceFiles)
+
 			// Step 1: Analyze routes and extract type information
 			const appRoutes = this.app?.getRoutes() ?? []
-			this.analyzedRoutes = await this.routeAnalyzer.analyzeControllerMethods(this.project, appRoutes)
+			this.analyzedRoutes = await this.routeAnalyzer.analyzeControllerMethodsWithControllers(
+				appRoutes,
+				analysisGraph.controllers
+			)
 			warnings.push(...this.routeAnalyzer.getWarnings())
 
 			// Step 2: Generate schemas from the types we found
-			this.analyzedSchemas = await this.schemaGenerator.generateSchemas(this.project)
+			this.analyzedSchemas = await this.schemaGenerator.generateSchemasFromCollectedTypes(
+				analysisGraph.collectedTypes
+			)
 			warnings.push(...this.schemaGenerator.getWarnings())
 
 			if (this.failOnRouteAnalysisWarning && this.routeAnalyzer.getWarnings().length > 0) {

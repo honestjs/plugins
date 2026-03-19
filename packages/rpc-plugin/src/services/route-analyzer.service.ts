@@ -39,12 +39,26 @@ export class RouteAnalyzerService {
 		}
 
 		const controllers = this.findControllerClasses(project)
+		return this.analyzeControllerMethodsWithControllers(routes, controllers)
+	}
+
+	/**
+	 * Analyzes controller methods with precomputed controller map.
+	 */
+	async analyzeControllerMethodsWithControllers(
+		routes: ReadonlyArray<RouteInfo>,
+		controllers: ReadonlyMap<string, ClassDeclaration>
+	): Promise<ExtendedRouteInfo[]> {
+		this.warnings = []
+		if (!routes?.length) {
+			return []
+		}
 
 		if (controllers.size === 0) {
 			return []
 		}
 
-		return this.processRoutes(routes, controllers)
+		return this.processRoutes(routes, new Map(controllers))
 	}
 
 	/**

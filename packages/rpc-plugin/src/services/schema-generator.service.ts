@@ -42,6 +42,14 @@ export class SchemaGeneratorService {
 	}
 
 	/**
+	 * Generates JSON schemas from a precomputed set of type names.
+	 */
+	async generateSchemasFromCollectedTypes(collectedTypes: ReadonlySet<string>): Promise<SchemaInfo[]> {
+		this.warnings = []
+		return this.processTypes(new Set(collectedTypes))
+	}
+
+	/**
 	 * Collects types from controller files
 	 */
 	private collectTypesFromControllers(sourceFiles: readonly SourceFile[]): Set<string> {
