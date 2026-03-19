@@ -1,5 +1,5 @@
 import fs from 'fs'
-import type { Application, IPlugin } from 'honestjs'
+import type { Application, IPlugin, RouteInfo } from 'honestjs'
 import type { Hono } from 'hono'
 import path from 'path'
 import { ClassDeclaration, Project } from 'ts-morph'
@@ -27,6 +27,29 @@ export interface RPCDiagnostics {
 	readonly warnings: readonly string[]
 }
 
+export interface RPCAnalysisState {
+	readonly routes: readonly ExtendedRouteInfo[]
+	readonly schemas: readonly SchemaInfo[]
+	readonly warnings: readonly string[]
+	readonly dryRun: boolean
+	readonly mode: RPCMode
+	readonly outputDir: string
+}
+
+export interface RPCEmitState extends RPCAnalysisState {
+	readonly generatedInfos: readonly GeneratedClientInfo[]
+}
+
+export type RPCPreAnalysisFilter = (
+	routes: readonly RouteInfo[]
+) => readonly RouteInfo[] | Promise<readonly RouteInfo[]>
+
+export type RPCPostAnalysisTransform = (state: RPCAnalysisState) => RPCAnalysisState | Promise<RPCAnalysisState>
+
+export type RPCPreEmitValidator = (state: RPCAnalysisState) => void | Promise<void>
+
+export type RPCPostEmitReporter = (state: RPCEmitState) => void | Promise<void>
+
 /**
  * Configuration options for the RPCPlugin
  */
@@ -47,6 +70,12 @@ export interface RPCPluginOptions {
 			readonly artifact?: string
 		}
 	}
+	readonly hooks?: {
+		readonly preAnalysisFilters?: readonly RPCPreAnalysisFilter[]
+		readonly postAnalysisTransforms?: readonly RPCPostAnalysisTransform[]
+		readonly preEmitValidators?: readonly RPCPreEmitValidator[]
+		readonly postEmitReporters?: readonly RPCPostEmitReporter[]
+	}
 }
 
 /**
@@ -64,6 +93,10 @@ export class RPCPlugin implements IPlugin {
 	private readonly failOnSchemaError: boolean
 	private readonly failOnRouteAnalysisWarning: boolean
 	private readonly customClassMatcher?: (classDeclaration: ClassDeclaration) => boolean
+	private readonly preAnalysisFilters: readonly RPCPreAnalysisFilter[]
+	private readonly postAnalysisTransforms: readonly RPCPostAnalysisTransform[]
+	private readonly preEmitValidators: readonly RPCPreEmitValidator[]
+	private readonly postEmitReporters: readonly RPCPostEmitReporter[]
 
 	// Services
 	private readonly routeAnalyzer: RouteAnalyzerService
@@ -94,6 +127,10 @@ export class RPCPlugin implements IPlugin {
 		this.customClassMatcher = options.customClassMatcher
 		this.failOnSchemaError = options.failOnSchemaError ?? this.mode === 'strict'
 		this.failOnRouteAnalysisWarning = options.failOnRouteAnalysisWarning ?? this.mode === 'strict'
+		this.preAnalysisFilters = options.hooks?.preAnalysisFilters ?? []
+		this.postAnalysisTransforms = options.hooks?.postAnalysisTransforms ?? []
+		this.preEmitValidators = options.hooks?.preEmitValidators ?? []
+		this.postEmitReporters = options.hooks?.postEmitReporters ?? []
 
 		// Initialize services
 		this.routeAnalyzer = new RouteAnalyzerService({
@@ -151,6 +188,26 @@ export class RPCPlugin implements IPlugin {
 			}
 			if (typeof generator.generate !== 'function') {
 				errors.push(`Generator "${generator.name || 'unknown'}" must implement generate(context)`)
+			}
+		}
+		for (const hook of this.preAnalysisFilters) {
+			if (typeof hook !== 'function') {
+				errors.push('preAnalysisFilters entries must be functions')
+			}
+		}
+		for (const hook of this.postAnalysisTransforms) {
+			if (typeof hook !== 'function') {
+				errors.push('postAnalysisTransforms entries must be functions')
+			}
+		}
+		for (const hook of this.preEmitValidators) {
+			if (typeof hook !== 'function') {
+				errors.push('preEmitValidators entries must be functions')
+			}
+		}
+		for (const hook of this.postEmitReporters) {
+			if (typeof hook !== 'function') {
+				errors.push('postEmitReporters entries must be functions')
 			}
 		}
 
@@ -234,7 +291,7 @@ export class RPCPlugin implements IPlugin {
 			const analysisGraph = this.analysisGraphBuilder.build(controllerSourceFiles)
 
 			// Step 1: Analyze routes and extract type information
-			const appRoutes = this.app?.getRoutes() ?? []
+			const appRoutes = await this.applyPreAnalysisFilters(this.app?.getRoutes() ?? [])
 			this.analyzedRoutes = await this.routeAnalyzer.analyzeControllerMethodsWithControllers(
 				appRoutes,
 				analysisGraph.controllers
@@ -247,11 +304,32 @@ export class RPCPlugin implements IPlugin {
 			)
 			warnings.push(...this.schemaGenerator.getWarnings())
 
+			const transformed = await this.applyPostAnalysisTransforms({
+				routes: this.analyzedRoutes,
+				schemas: this.analyzedSchemas,
+				warnings,
+				dryRun,
+				mode: this.mode,
+				outputDir: this.outputDir
+			})
+			this.analyzedRoutes = [...transformed.routes]
+			this.analyzedSchemas = [...transformed.schemas]
+			warnings.splice(0, warnings.length, ...transformed.warnings)
+
 			if (this.failOnRouteAnalysisWarning && this.routeAnalyzer.getWarnings().length > 0) {
 				throw new Error(
 					`Route analysis warnings encountered in strict mode: ${this.routeAnalyzer.getWarnings().join('; ')}`
 				)
 			}
+
+			await this.runPreEmitValidators({
+				routes: this.analyzedRoutes,
+				schemas: this.analyzedSchemas,
+				warnings,
+				dryRun,
+				mode: this.mode,
+				outputDir: this.outputDir
+			})
 
 			// Step 3: Run configured generators
 			if (!dryRun) {
@@ -284,6 +362,16 @@ export class RPCPlugin implements IPlugin {
 				warnings
 			}
 			await this.writeDiagnosticsToDisk()
+
+			await this.runPostEmitReporters({
+				routes: this.analyzedRoutes,
+				schemas: this.analyzedSchemas,
+				warnings,
+				dryRun,
+				mode: this.mode,
+				outputDir: this.outputDir,
+				generatedInfos: this.generatedInfos
+			})
 
 			this.log(
 				`✅ RPC analysis complete: ${this.analyzedRoutes.length} routes, ${this.analyzedSchemas.length} schemas`
@@ -422,6 +510,34 @@ export class RPCPlugin implements IPlugin {
 
 	private hasTypeScriptGenerator(): boolean {
 		return this.generators.some((generator) => generator.name === 'typescript-client')
+	}
+
+	private async applyPreAnalysisFilters(routes: readonly RouteInfo[]): Promise<readonly RouteInfo[]> {
+		let currentRoutes = routes
+		for (const filter of this.preAnalysisFilters) {
+			currentRoutes = await filter(currentRoutes)
+		}
+		return currentRoutes
+	}
+
+	private async applyPostAnalysisTransforms(state: RPCAnalysisState): Promise<RPCAnalysisState> {
+		let currentState = state
+		for (const transform of this.postAnalysisTransforms) {
+			currentState = await transform(currentState)
+		}
+		return currentState
+	}
+
+	private async runPreEmitValidators(state: RPCAnalysisState): Promise<void> {
+		for (const validator of this.preEmitValidators) {
+			await validator(state)
+		}
+	}
+
+	private async runPostEmitReporters(state: RPCEmitState): Promise<void> {
+		for (const reporter of this.postEmitReporters) {
+			await reporter(state)
+		}
 	}
 
 	private computeGeneratorsHash(): string {

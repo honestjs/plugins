@@ -132,6 +132,19 @@ describe('RPCPlugin', () => {
 			expect((plugin as any).generators).toHaveLength(1)
 			expect((plugin as any).generators[0]?.name).toBe('custom-generator')
 		})
+
+		it('throws when a hook entry is not a function', () => {
+			expect(
+				() =>
+					new RPCPlugin({
+						tsConfigPath: validTsConfigPath,
+						outputDir: path.join(__dirname, '..', 'generated'),
+						hooks: {
+							preAnalysisFilters: ['invalid' as any]
+						}
+					})
+			).toThrow(/preAnalysisFilters entries must be functions/)
+		})
 	})
 
 	describe('context artifact publishing', () => {
@@ -553,6 +566,72 @@ describe('RPCPlugin', () => {
 
 			expect(plugin.getDiagnostics()).not.toBeNull()
 			expect(plugin.getDiagnostics()?.dryRun).toBe(true)
+		})
+	})
+
+	describe('hooks', () => {
+		it('runs lifecycle hooks during analyze', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-hooks-'))
+			tempDirs.push(outputDir)
+
+			const preAnalysisFilter = vi.fn(async (routes) => routes)
+			const postAnalysisTransform = vi.fn(async (state) => state)
+			const preEmitValidator = vi.fn(async () => undefined)
+			const postEmitReporter = vi.fn(async () => undefined)
+
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false,
+				hooks: {
+					preAnalysisFilters: [preAnalysisFilter],
+					postAnalysisTransforms: [postAnalysisTransform],
+					preEmitValidators: [preEmitValidator],
+					postEmitReporters: [postEmitReporter]
+				}
+			})
+
+			await plugin.analyze({ force: true, dryRun: true })
+
+			expect(preAnalysisFilter).toHaveBeenCalledTimes(1)
+			expect(postAnalysisTransform).toHaveBeenCalledTimes(1)
+			expect(preEmitValidator).toHaveBeenCalledTimes(1)
+			expect(postEmitReporter).toHaveBeenCalledTimes(1)
+		})
+
+		it('allows postAnalysisTransform to mutate warnings and routes used in diagnostics', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-hooks-transform-'))
+			tempDirs.push(outputDir)
+
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false,
+				hooks: {
+					postAnalysisTransforms: [
+						async (state) => ({
+							...state,
+							routes: [
+								{
+									controller: 'SyntheticController',
+									handler: 'synthetic',
+									method: 'GET',
+									prefix: '',
+									route: '/synthetic',
+									path: '/synthetic',
+									fullPath: '/synthetic'
+								}
+							],
+							warnings: [...state.warnings, 'synthetic warning']
+						})
+					]
+				}
+			})
+
+			await plugin.analyze({ force: true, dryRun: true })
+
+			expect(plugin.getRoutes()).toHaveLength(1)
+			expect(plugin.getDiagnostics()?.warnings).toContain('synthetic warning')
 		})
 	})
 
