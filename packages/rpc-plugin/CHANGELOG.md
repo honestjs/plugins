@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.7.3
+
+### Patch Changes
+
+- 61f466b: Add isSyntheticTypeName utility and enhance type extraction logic
+
 ## 1.7.2
 
 ### Patch Changes
