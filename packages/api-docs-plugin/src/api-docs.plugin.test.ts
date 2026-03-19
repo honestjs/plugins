@@ -26,7 +26,6 @@ const versionedArtifact = {
 class TestModule {}
 
 describe('ApiDocsPlugin', () => {
-
 	it('serves OpenAPI JSON from direct artifact', async () => {
 		const plugin = new ApiDocsPlugin({
 			artifact: versionedArtifact,
@@ -259,9 +258,7 @@ describe('ApiDocsPlugin', () => {
 					controller: 'UsersController',
 					fullPath: '/users/:id',
 					returns: 'User',
-					parameters: [
-						{ name: 'id', data: 'id', type: 'string', decoratorType: 'param', required: true }
-					]
+					parameters: [{ name: 'id', data: 'id', type: 'string', decoratorType: 'param', required: true }]
 				}
 			],
 			schemas: [

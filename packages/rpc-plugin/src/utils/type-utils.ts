@@ -32,3 +32,21 @@ export function extractNamedType(type: Type): string | null {
 
 	return name
 }
+
+/**
+ * Extracts all named types from a type, including union members (e.g. TodoStatus | undefined → ['TodoStatus']).
+ */
+export function extractNamedTypes(type: Type): string[] {
+	const result: string[] = []
+	if (type.isUnion()) {
+		for (const member of type.getUnionTypes()) {
+			const name = extractNamedType(member)
+			if (name) result.push(name)
+		}
+	}
+	if (result.length === 0) {
+		const single = extractNamedType(type)
+		if (single) result.push(single)
+	}
+	return result
+}

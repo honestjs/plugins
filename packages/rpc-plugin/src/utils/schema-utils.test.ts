@@ -76,5 +76,18 @@ describe('schema-utils', () => {
 			expect(result).toContain('export interface Foo {')
 			expect(result).toContain('Failed to generate interface')
 		})
+
+		it('generates type alias for string enum in definitions', () => {
+			const schema = {
+				definitions: {
+					TodoStatus: {
+						type: 'string',
+						enum: ['todo', 'in_progress', 'done']
+					}
+				}
+			}
+			const result = generateTypeScriptInterface('TodoStatus', schema)
+			expect(result).toBe("export type TodoStatus = 'todo' | 'in_progress' | 'done'")
+		})
 	})
 })

@@ -10,9 +10,7 @@ describe('artifact-contract', () => {
 
 	describe('isRpcArtifact', () => {
 		it('returns true for valid artifact', () => {
-			expect(
-				isRpcArtifact({ artifactVersion: '1', routes: [], schemas: [] })
-			).toBe(true)
+			expect(isRpcArtifact({ artifactVersion: '1', routes: [], schemas: [] })).toBe(true)
 		})
 
 		it('returns false for null', () => {
@@ -60,9 +58,7 @@ describe('artifact-contract', () => {
 
 	describe('assertRpcArtifact', () => {
 		it('does not throw for valid artifact with version "1"', () => {
-			expect(() =>
-				assertRpcArtifact({ artifactVersion: '1', routes: [], schemas: [] })
-			).not.toThrow()
+			expect(() => assertRpcArtifact({ artifactVersion: '1', routes: [], schemas: [] })).not.toThrow()
 		})
 
 		it('throws for invalid shape', () => {
@@ -72,9 +68,9 @@ describe('artifact-contract', () => {
 		})
 
 		it('throws for unsupported artifact version', () => {
-			expect(() =>
-				assertRpcArtifact({ artifactVersion: '2', routes: [], schemas: [] })
-			).toThrow("Unsupported RPC artifact version '2'")
+			expect(() => assertRpcArtifact({ artifactVersion: '2', routes: [], schemas: [] })).toThrow(
+				"Unsupported RPC artifact version '2'"
+			)
 		})
 
 		it('includes supported version in error message', () => {

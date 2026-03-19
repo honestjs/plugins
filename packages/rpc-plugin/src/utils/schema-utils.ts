@@ -27,13 +27,22 @@ export function mapJsonSchemaTypeToTypeScript(schema: Record<string, any>): stri
 }
 
 /**
- * Generates TypeScript interface from JSON schema
+ * Generates TypeScript interface or type alias from JSON schema
  */
 export function generateTypeScriptInterface(typeName: string, schema: Record<string, any>): string {
 	try {
-		const typeDefinition = schema.definitions?.[typeName]
+		// Use definition when present; otherwise use root schema only if there are no definitions (root-level type)
+		const typeDefinition = schema.definitions?.[typeName] ?? (schema.definitions === undefined ? schema : undefined)
 		if (!typeDefinition) {
 			return `export interface ${typeName} {\n\t// No schema definition found\n}`
+		}
+
+		// Type alias for string union / enum (e.g. type TodoStatus = 'todo' | 'in_progress' | 'done')
+		if (typeDefinition.type === 'string' && typeDefinition.enum && Array.isArray(typeDefinition.enum)) {
+			const union = (typeDefinition.enum as string[])
+				.map((s) => `'${String(s).replace(/'/g, "\\'")}'`)
+				.join(' | ')
+			return `export type ${typeName} = ${union}`
 		}
 
 		const properties = typeDefinition.properties || {}

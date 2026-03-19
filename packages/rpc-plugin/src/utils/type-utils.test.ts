@@ -1,6 +1,6 @@
 import { Project } from 'ts-morph'
 import { describe, expect, it } from 'vitest'
-import { extractNamedType, isSyntheticTypeName } from './type-utils'
+import { extractNamedType, extractNamedTypes, isSyntheticTypeName } from './type-utils'
 
 function getParamType(source: string, paramIndex = 0) {
 	const project = new Project({ useInMemoryFileSystem: true })
@@ -66,6 +66,18 @@ describe('type-utils', () => {
 			// Inline object types may be reported as __type by the compiler
 			const name = extractNamedType(type!)
 			expect(name === null || !isSyntheticTypeName(name)).toBe(true)
+		})
+	})
+
+	describe('extractNamedTypes', () => {
+		it('extracts named types from union (e.g. optional param)', () => {
+			const type = getParamType(`
+				type TodoStatus = 'todo' | 'done'
+				function f(s?: TodoStatus) {}
+			`)
+			expect(type).not.toBeNull()
+			const names = extractNamedTypes(type!)
+			expect(names).toContain('TodoStatus')
 		})
 	})
 

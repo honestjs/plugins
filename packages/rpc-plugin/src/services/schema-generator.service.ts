@@ -2,7 +2,7 @@ import { createGenerator } from 'ts-json-schema-generator'
 import { MethodDeclaration, Project } from 'ts-morph'
 import type { SchemaInfo } from '../types/schema.types'
 import { generateTypeScriptInterface } from '../utils/schema-utils'
-import { extractNamedType } from '../utils/type-utils'
+import { extractNamedTypes } from '../utils/type-utils'
 
 export interface SchemaGeneratorOptions {
 	readonly failOnSchemaError?: boolean
@@ -62,17 +62,19 @@ export class SchemaGeneratorService {
 	 * Collects types from a single method
 	 */
 	private collectTypesFromMethod(method: MethodDeclaration, collectedTypes: Set<string>): void {
-		// Collect parameter types
+		// Collect parameter types (including union members, e.g. TodoStatus | undefined)
 		for (const param of method.getParameters()) {
-			const type = extractNamedType(param.getType())
-			if (type) collectedTypes.add(type)
+			for (const name of extractNamedTypes(param.getType())) {
+				collectedTypes.add(name)
+			}
 		}
 
 		// Collect return type
 		const returnType = method.getReturnType()
 		const innerType = returnType.getTypeArguments()[0] ?? returnType
-		const type = extractNamedType(innerType)
-		if (type) collectedTypes.add(type)
+		for (const name of extractNamedTypes(innerType)) {
+			collectedTypes.add(name)
+		}
 	}
 
 	/**

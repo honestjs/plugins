@@ -289,7 +289,9 @@ You can also delete `.rpc-checksum` from the output directory to clear the cache
 
 ## Type Inference and Limitations
 
-The plugin extracts type **names** from controller method parameters and return types, then uses `ts-json-schema-generator` to convert those names into JSON schemas and TypeScript interfaces for the generated client. Not all TypeScript type shapes can be reliably converted; this section describes what works and what does not.
+The plugin extracts type **names** from controller method parameters and return types, then uses
+`ts-json-schema-generator` to convert those names into JSON schemas and TypeScript interfaces for the generated client.
+Not all TypeScript type shapes can be reliably converted; this section describes what works and what does not.
 
 ### Supported Type Patterns
 
@@ -306,11 +308,13 @@ The plugin extracts type **names** from controller method parameters and return 
 - **Anonymous internal symbols** (e.g. `__type`) that the compiler uses for inline object types
 - Types that depend on heavy generic instantiation chains
 
-When schema generation fails for a type, the plugin logs a warning and, in `best-effort` mode, emits an empty interface with a `// No schema definition found` comment in the generated client so generation continues.
+When schema generation fails for a type, the plugin logs a warning and, in `best-effort` mode, emits an empty interface
+with a `// No schema definition found` comment in the generated client so generation continues.
 
 ### Best Practice: Explicit DTOs
 
-Use **explicit interfaces or type aliases** for controller parameters and return types. Keep ORM-inferred types in your services and map to explicit DTOs at the controller boundary.
+Use **explicit interfaces or type aliases** for controller parameters and return types. Keep ORM-inferred types in your
+services and map to explicit DTOs at the controller boundary.
 
 **Problematic (schema generation may fail):**
 
@@ -353,11 +357,14 @@ class LinksController {
 
 ### Inline Return Types
 
-When the return type is an **inline object literal** (e.g. `Promise<{ data: Link[]; total: number }>`), the plugin inlines it directly in the generated client and does not need to resolve a named type for schema generation. Those return types always work regardless of whether `Link` is inferred or explicit.
+When the return type is an **inline object literal** (e.g. `Promise<{ data: Link[]; total: number }>`), the plugin
+inlines it directly in the generated client and does not need to resolve a named type for schema generation. Those
+return types always work regardless of whether `Link` is inferred or explicit.
 
 ### Diagnosing Schema Issues
 
-- Check **`rpc-diagnostics.json`** in the output directory: it lists `warnings` for each type that failed schema generation.
+- Check **`rpc-diagnostics.json`** in the output directory: it lists `warnings` for each type that failed schema
+  generation.
 - In **best-effort** mode (default), failed types result in empty interfaces; the client still generates.
 - Set **`failOnSchemaError: true`** (or use `mode: 'strict'`) to make schema failures throw and stop generation.
 

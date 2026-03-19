@@ -257,6 +257,24 @@ describe('TypeScriptClientGenerator', () => {
 		expect(content).toMatch(/Result\s*=\s*any/)
 	})
 
+	it('strips TypedResponse from return type so client stays self-contained', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const route: ExtendedRouteInfo = {
+			...mockRoute,
+			handler: 'redirect',
+			fullPath: '/redirect',
+			returns: 'Response & TypedResponse<undefined, 302, "redirect">',
+			parameters: []
+		}
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		await generator.generateClient([route], [])
+
+		const content = fs.readFileSync(path.join(outputDir, 'client.ts'), 'utf-8')
+		expect(content).toMatch(/Result\s*=\s*Response\b/)
+		expect(content).not.toContain('TypedResponse')
+	})
+
 	it('includes FetchFunction type in output', async () => {
 		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
 		const generator = new TypeScriptClientGenerator(outputDir)
@@ -270,8 +288,22 @@ describe('TypeScriptClientGenerator', () => {
 	it('generates multiple routes under the same controller getter', async () => {
 		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
 		const routes: ExtendedRouteInfo[] = [
-			{ ...mockRoute, controller: 'UsersController', handler: 'findAll', fullPath: '/users', method: 'GET', parameters: [] },
-			{ ...mockRoute, controller: 'UsersController', handler: 'create', fullPath: '/users', method: 'POST', parameters: [] },
+			{
+				...mockRoute,
+				controller: 'UsersController',
+				handler: 'findAll',
+				fullPath: '/users',
+				method: 'GET',
+				parameters: []
+			},
+			{
+				...mockRoute,
+				controller: 'UsersController',
+				handler: 'create',
+				fullPath: '/users',
+				method: 'POST',
+				parameters: []
+			},
 			{ ...mockRoute, controller: 'UsersController', handler: 'findOne', fullPath: '/users/:id', method: 'GET' }
 		]
 		const generator = new TypeScriptClientGenerator(outputDir)

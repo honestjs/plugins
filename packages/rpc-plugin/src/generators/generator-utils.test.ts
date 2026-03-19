@@ -50,9 +50,7 @@ describe('generator-utils', () => {
 		})
 
 		it('handles symbol controller names via safeToString', () => {
-			const routes = [
-				makeRoute({ controller: Symbol('MyController') as any, handler: 'index' })
-			]
+			const routes = [makeRoute({ controller: Symbol('MyController') as any, handler: 'index' })]
 
 			const result = groupRoutesByController(routes)
 			expect(result.size).toBe(1)

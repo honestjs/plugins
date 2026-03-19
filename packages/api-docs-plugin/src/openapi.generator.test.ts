@@ -378,9 +378,7 @@ describe('openapi.generator', () => {
 					routes: [
 						makeRoute({
 							fullPath: '/test',
-							parameters: [
-								{ name: 'fallbackName', type: 'string', decoratorType: 'param' }
-							]
+							parameters: [{ name: 'fallbackName', type: 'string', decoratorType: 'param' }]
 						})
 					]
 				})
@@ -417,9 +415,7 @@ describe('openapi.generator', () => {
 						makeRoute({
 							fullPath: '/users',
 							method: 'POST',
-							parameters: [
-								{ name: 'dto', type: 'CreateUserDto', decoratorType: 'body' }
-							]
+							parameters: [{ name: 'dto', type: 'CreateUserDto', decoratorType: 'body' }]
 						})
 					]
 				})
@@ -439,9 +435,7 @@ describe('openapi.generator', () => {
 							fullPath: '/users',
 							method: 'POST',
 							handler: 'create',
-							parameters: [
-								{ name: 'dto', type: 'CreateUserDto', decoratorType: 'body' }
-							]
+							parameters: [{ name: 'dto', type: 'CreateUserDto', decoratorType: 'body' }]
 						})
 					],
 					schemas: [createDtoSchema]
@@ -462,9 +456,7 @@ describe('openapi.generator', () => {
 						makeRoute({
 							fullPath: '/users',
 							method: 'POST',
-							parameters: [
-								{ name: 'dto', type: 'UnknownDto', decoratorType: 'body' }
-							]
+							parameters: [{ name: 'dto', type: 'UnknownDto', decoratorType: 'body' }]
 						})
 					]
 				})

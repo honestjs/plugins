@@ -131,9 +131,7 @@ describe('RouteAnalyzerService', () => {
 			const service = new RouteAnalyzerService()
 			const project = createProject({ 'controller.ts': controllerSource })
 
-			const paramMeta: ParameterMetadata[] = [
-				{ index: 0, name: 'param', data: ':id', factory: () => null }
-			]
+			const paramMeta: ParameterMetadata[] = [{ index: 0, name: 'param', data: ':id', factory: () => null }]
 			const routes: RouteInfo[] = [
 				makeRoute({
 					controller: 'UsersController',
@@ -155,9 +153,7 @@ describe('RouteAnalyzerService', () => {
 			const service = new RouteAnalyzerService()
 			const project = createProject({ 'controller.ts': controllerSource })
 
-			const routes: RouteInfo[] = [
-				makeRoute({ controller: 'NonExistentController', handler: 'index' })
-			]
+			const routes: RouteInfo[] = [makeRoute({ controller: 'NonExistentController', handler: 'index' })]
 
 			const result = await service.analyzeControllerMethods(project, routes)
 			expect(result).toHaveLength(1)
@@ -169,9 +165,7 @@ describe('RouteAnalyzerService', () => {
 			const service = new RouteAnalyzerService()
 			const project = createProject({ 'controller.ts': controllerSource })
 
-			await service.analyzeControllerMethods(project, [
-				makeRoute({ controller: 'Missing', handler: 'x' })
-			])
+			await service.analyzeControllerMethods(project, [makeRoute({ controller: 'Missing', handler: 'x' })])
 			expect(service.getWarnings().length).toBeGreaterThan(0)
 
 			await service.analyzeControllerMethods(project, [
@@ -185,9 +179,7 @@ describe('RouteAnalyzerService', () => {
 			const service = new RouteAnalyzerService({ onWarn })
 			const project = createProject({ 'controller.ts': controllerSource })
 
-			await service.analyzeControllerMethods(project, [
-				makeRoute({ controller: 'Missing', handler: 'index' })
-			])
+			await service.analyzeControllerMethods(project, [makeRoute({ controller: 'Missing', handler: 'index' })])
 
 			expect(onWarn).toHaveBeenCalled()
 			expect(onWarn.mock.calls[0][0]).toContain('Missing')
@@ -223,9 +215,7 @@ describe('RouteAnalyzerService', () => {
 			const service = new RouteAnalyzerService()
 			const project = createProject({ 'view.ts': viewSource })
 
-			const routes: RouteInfo[] = [
-				makeRoute({ controller: 'HomeView', handler: 'index', fullPath: '/home' })
-			]
+			const routes: RouteInfo[] = [makeRoute({ controller: 'HomeView', handler: 'index', fullPath: '/home' })]
 			const result = await service.analyzeControllerMethods(project, routes)
 			expect(result).toHaveLength(1)
 		})
