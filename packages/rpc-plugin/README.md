@@ -47,8 +47,40 @@ interface RPCPluginOptions {
 			readonly artifact?: string // Default: 'artifact'
 		}
 	}
+	readonly hooks?: {
+		readonly preAnalysisFilters?: readonly RPCPreAnalysisFilter[]
+		readonly postAnalysisTransforms?: readonly RPCPostAnalysisTransform[]
+		readonly preEmitValidators?: readonly RPCPreEmitValidator[]
+		readonly postEmitReporters?: readonly RPCPostEmitReporter[]
+	}
 }
 ```
+
+## Generator Compatibility Contract
+
+Custom generators participate in explicit API version and capability negotiation.
+
+```typescript
+interface RPCGenerator {
+	readonly name: string
+	readonly supportedApiVersions?: readonly string[]
+	readonly requiredCapabilities?: readonly RPCGeneratorCapability[]
+	generate(context: RPCGeneratorContext): Promise<GeneratedClientInfo>
+}
+
+interface RPCGeneratorContext {
+	readonly outputDir: string
+	readonly routes: readonly ExtendedRouteInfo[]
+	readonly schemas: readonly SchemaInfo[]
+	readonly pluginApiVersion: string
+	readonly pluginCapabilities: readonly RPCGeneratorCapability[]
+}
+```
+
+The plugin validates this at construction time and fails fast if versions/capabilities are incompatible.
+
+- No legacy compatibility adapter is provided for generator API mismatches.
+- Generators must explicitly support the active plugin API version.
 
 ### Generator Behavior
 
@@ -260,32 +292,62 @@ You can also delete `.rpc-checksum` from the output directory to clear the cache
 
 ## How It Works
 
-### 1. Route Analysis
+### Stage 1. Analysis
 
-- Scans your HonestJS route registry
-- Uses ts-morph to analyze controller source code
-- Extracts method signatures, parameter types, and return types
-- Builds comprehensive route metadata
+- Scans route registry and source files once
+- Builds a shared analysis graph from controller AST traversal
+- Extracts route metadata and candidate schema types
+- Produces stage diagnostics and warnings
 
-### 2. Schema Generation
+### Stage 2. Transform
 
-- Analyzes types used in controller methods
-- Generates JSON schemas using ts-json-schema-generator
-- Creates TypeScript interfaces from schemas
-- Integrates with route analysis for complete type coverage
+- Applies post-analysis transforms
+- Runs pre-emit validators
+- Enforces strict-mode warning gates before emit
 
-### 3. Client Generation
+### Stage 3. Emit
+
+- Executes configured generators with validated context
+- Persists artifact + diagnostics atomically
+- Runs post-emit reporters
+
+### Stage 4. Caching
+
+- Uses checksum + generator hash to determine cache hit/miss
+- Skips full pipeline on valid cache hit
+- Writes refreshed checksum and diagnostics on successful emits
+
+This staged flow is implemented in:
+
+- `src/pipeline/analysis-stage.ts`
+- `src/pipeline/transform-stage.ts`
+- `src/pipeline/emit-stage.ts`
+- `src/pipeline/pipeline-coordinator.ts`
+
+### Generated Client Features
 
 - Groups routes by controller for organization
 - Generates type-safe method signatures
 - Creates parameter validation and typing
 - Builds the complete RPC client with proper error handling
 
-### 4. Incremental Caching
+## Performance Regression Gate
 
-- Hashes all matched controller files after glob resolution
-- Compares against the stored `.rpc-checksum`
-- Skips steps 1–3 when files are unchanged and output already exists
+The plugin ships with latency regression tests that exercise small/medium/large controller fixtures and cache behavior:
+
+- `src/rpc.plugin.performance.test.ts`
+
+Run only performance tests:
+
+```bash
+pnpm vitest run src/rpc.plugin.performance.test.ts
+```
+
+Run focused verification suite (core + generator + performance):
+
+```bash
+pnpm vitest run src/rpc.plugin.test.ts src/generators/typescript-client.generator.test.ts src/rpc.plugin.performance.test.ts
+```
 
 ## Type Inference and Limitations
 
