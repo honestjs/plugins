@@ -1,5 +1,14 @@
 # @honestjs/rpc-plugin
 
+## 1.7.5
+
+### Patch Changes
+
+- a24ca47: - Refactor plugin orchestration to an explicit staged pipeline (analysis -> transform -> emit) with a
+  dedicated coordinator.
+    - Add strict generator compatibility negotiation via `supportedApiVersions` and `requiredCapabilities`.
+    - Add performance regression tests for analyze latency and cache hit behavior.
+
 ## 1.7.4
 
 ### Patch Changes
