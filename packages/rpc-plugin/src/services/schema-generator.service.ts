@@ -1,5 +1,5 @@
 import { createGenerator } from 'ts-json-schema-generator'
-import { MethodDeclaration, Project } from 'ts-morph'
+import { MethodDeclaration, Project, SourceFile } from 'ts-morph'
 import type { SchemaInfo } from '../types/schema.types'
 import { generateTypeScriptInterface } from '../utils/schema-utils'
 import { extractNamedTypes } from '../utils/type-utils'
@@ -44,7 +44,7 @@ export class SchemaGeneratorService {
 	/**
 	 * Collects types from controller files
 	 */
-	private collectTypesFromControllers(sourceFiles: readonly any[]): Set<string> {
+	private collectTypesFromControllers(sourceFiles: readonly SourceFile[]): Set<string> {
 		const collectedTypes = new Set<string>()
 
 		for (const file of sourceFiles) {
@@ -82,6 +82,9 @@ export class SchemaGeneratorService {
 	 */
 	private async processTypes(collectedTypes: Set<string>): Promise<SchemaInfo[]> {
 		const schemas: SchemaInfo[] = []
+		if (collectedTypes.size === 0) {
+			return schemas
+		}
 
 		for (const typeName of collectedTypes) {
 			try {

@@ -9,10 +9,13 @@ export function groupRoutesByController(routes: readonly ExtendedRouteInfo[]): C
 
 	for (const route of routes) {
 		const controller = safeToString(route.controller)
-		if (!groups.has(controller)) {
-			groups.set(controller, [])
+		const existing = groups.get(controller)
+		if (existing) {
+			existing.push(route)
+			continue
 		}
-		groups.get(controller)!.push(route)
+
+		groups.set(controller, [route])
 	}
 
 	return groups

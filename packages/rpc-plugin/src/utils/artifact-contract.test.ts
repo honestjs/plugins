@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isRpcArtifact, assertRpcArtifact, RPC_ARTIFACT_VERSION } from './artifact-contract'
+import { isRpcArtifact, assertRpcArtifact, parseRpcArtifact, RPC_ARTIFACT_VERSION } from './artifact-contract'
 
 describe('artifact-contract', () => {
 	describe('RPC_ARTIFACT_VERSION', () => {
@@ -79,6 +79,50 @@ describe('artifact-contract', () => {
 			} catch (e: any) {
 				expect(e.message).toContain(RPC_ARTIFACT_VERSION)
 			}
+		})
+	})
+
+	describe('parseRpcArtifact', () => {
+		it('parses valid versioned artifact', () => {
+			const parsed = parseRpcArtifact({
+				artifactVersion: '1',
+				routes: [{ controller: 'UsersController', handler: 'list', method: 'GET', fullPath: '/users' }],
+				schemas: [{ type: 'UserDto', schema: { type: 'object' } }]
+			})
+
+			expect(parsed).not.toBeNull()
+			expect(parsed?.routes.length).toBe(1)
+			expect(parsed?.schemas.length).toBe(1)
+		})
+
+		it('parses valid legacy artifact without version', () => {
+			const parsed = parseRpcArtifact({
+				routes: [{ controller: 'UsersController', handler: 'list', method: 'GET', fullPath: '/users' }],
+				schemas: [{ type: 'UserDto', schema: { type: 'object' } }]
+			})
+
+			expect(parsed).not.toBeNull()
+			expect(parsed?.routes[0]?.controller).toBe('UsersController')
+		})
+
+		it('returns null for unsupported artifact version', () => {
+			const parsed = parseRpcArtifact({ artifactVersion: '2', routes: [], schemas: [] })
+			expect(parsed).toBeNull()
+		})
+
+		it('returns null for invalid route entries', () => {
+			const parsed = parseRpcArtifact({ artifactVersion: '1', routes: [{}], schemas: [] })
+			expect(parsed).toBeNull()
+		})
+
+		it('returns null for invalid schema entries', () => {
+			const parsed = parseRpcArtifact({
+				artifactVersion: '1',
+				routes: [],
+				schemas: [{ type: 'UserDto', schema: 'invalid' }]
+			})
+
+			expect(parsed).toBeNull()
 		})
 	})
 })

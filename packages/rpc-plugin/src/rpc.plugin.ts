@@ -7,7 +7,7 @@ import { ClassDeclaration, Project } from 'ts-morph'
 import { DEFAULT_OPTIONS, LOG_PREFIX } from './constants/defaults'
 import { TypeScriptClientGenerator } from './generators'
 import { computeHash, readChecksum, writeChecksum } from './utils/hash-utils'
-import { assertRpcArtifact, RPC_ARTIFACT_VERSION } from './utils/artifact-contract'
+import { parseRpcArtifact, RPC_ARTIFACT_VERSION } from './utils/artifact-contract'
 import { RouteAnalyzerService } from './services/route-analyzer.service'
 import { SchemaGeneratorService } from './services/schema-generator.service'
 import type { ExtendedRouteInfo, GeneratedClientInfo, RPCGenerator, SchemaInfo } from './types'
@@ -77,6 +77,7 @@ export class RPCPlugin implements IPlugin {
 	private generatedInfos: GeneratedClientInfo[] = []
 	private diagnostics: RPCDiagnostics | null = null
 	private app: Application | null = null
+	private analysisQueue: Promise<void> = Promise.resolve()
 
 	constructor(options: RPCPluginOptions = {}) {
 		this.controllerPattern = options.controllerPattern ?? DEFAULT_OPTIONS.controllerPattern
@@ -274,10 +275,17 @@ export class RPCPlugin implements IPlugin {
 				? { force: forceOrOptions, dryRun: false }
 				: { force: forceOrOptions.force ?? true, dryRun: forceOrOptions.dryRun ?? false }
 
-		await this.analyzeEverything(options)
-		if (this.app && !options.dryRun) {
-			this.publishArtifact(this.app)
+		const run = async (): Promise<void> => {
+			await this.analyzeEverything(options)
+			if (this.app && !options.dryRun) {
+				this.publishArtifact(this.app)
+			}
 		}
+
+		const queuedRun = this.analysisQueue.then(run)
+		this.analysisQueue = queuedRun.catch(() => undefined)
+
+		await queuedRun
 	}
 
 	/**
@@ -352,22 +360,13 @@ export class RPCPlugin implements IPlugin {
 	private loadArtifactFromDisk(): boolean {
 		try {
 			const raw = fs.readFileSync(this.getArtifactPath(), 'utf8')
-			const parsed = JSON.parse(raw) as {
-				artifactVersion?: unknown
-				routes?: unknown
-				schemas?: unknown
+			const parsed = parseRpcArtifact(JSON.parse(raw))
+			if (!parsed) {
+				return false
 			}
-			if (parsed.artifactVersion === undefined) {
-				if (!Array.isArray(parsed.routes) || !Array.isArray(parsed.schemas)) {
-					return false
-				}
-				this.analyzedRoutes = parsed.routes as ExtendedRouteInfo[]
-				this.analyzedSchemas = parsed.schemas as SchemaInfo[]
-			} else {
-				assertRpcArtifact(parsed)
-				this.analyzedRoutes = parsed.routes as ExtendedRouteInfo[]
-				this.analyzedSchemas = parsed.schemas as SchemaInfo[]
-			}
+
+			this.analyzedRoutes = parsed.routes
+			this.analyzedSchemas = parsed.schemas
 			this.generatedInfos = []
 			return true
 		} catch {
@@ -376,17 +375,19 @@ export class RPCPlugin implements IPlugin {
 	}
 
 	private async runGenerators(): Promise<GeneratedClientInfo[]> {
-		const results: GeneratedClientInfo[] = []
 		for (const generator of this.generators) {
 			this.log(`Running generator: ${generator.name}`)
-			const result = await generator.generate({
-				outputDir: this.outputDir,
-				routes: this.analyzedRoutes,
-				schemas: this.analyzedSchemas
-			})
-			results.push(result)
 		}
-		return results
+
+		return Promise.all(
+			this.generators.map((generator) =>
+				generator.generate({
+					outputDir: this.outputDir,
+					routes: this.analyzedRoutes,
+					schemas: this.analyzedSchemas
+				})
+			)
+		)
 	}
 
 	private hasTypeScriptGenerator(): boolean {
@@ -410,7 +411,9 @@ export class RPCPlugin implements IPlugin {
 	 */
 	dispose(): void {
 		if (this.project) {
-			this.project.getSourceFiles().forEach((file) => this.project!.removeSourceFile(file))
+			for (const sourceFile of this.project.getSourceFiles()) {
+				this.project.removeSourceFile(sourceFile)
+			}
 			this.project = null
 		}
 	}
