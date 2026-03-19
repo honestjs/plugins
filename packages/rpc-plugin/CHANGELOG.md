@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.7.4
+
+### Patch Changes
+
+- 6a960e9: Improve return type extraction to handle external symbols and ensure self-contained client
+
 ## 1.7.3
 
 ### Patch Changes
