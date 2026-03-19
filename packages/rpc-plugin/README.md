@@ -331,24 +331,6 @@ This staged flow is implemented in:
 - Creates parameter validation and typing
 - Builds the complete RPC client with proper error handling
 
-## Performance Regression Gate
-
-The plugin ships with latency regression tests that exercise small/medium/large controller fixtures and cache behavior:
-
-- `src/rpc.plugin.performance.test.ts`
-
-Run only performance tests:
-
-```bash
-pnpm vitest run src/rpc.plugin.performance.test.ts
-```
-
-Run focused verification suite (core + generator + performance):
-
-```bash
-pnpm vitest run src/rpc.plugin.test.ts src/generators/typescript-client.generator.test.ts src/rpc.plugin.performance.test.ts
-```
-
 ## Type Inference and Limitations
 
 The plugin extracts type **names** from controller method parameters and return types, then uses
