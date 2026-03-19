@@ -2,6 +2,7 @@ import type { ParameterMetadata, RouteInfo } from 'honestjs'
 import { ClassDeclaration, MethodDeclaration, Project } from 'ts-morph'
 import type { ExtendedRouteInfo, ParameterMetadataWithType } from '../types/route.types'
 import { buildFullApiPath } from '../utils/path-utils'
+import { isSyntheticTypeName } from '../utils/type-utils'
 import { safeToString } from '../utils/string-utils'
 
 export interface RouteAnalyzerOptions {
@@ -146,7 +147,13 @@ export class RouteAnalyzerService {
 
 		const aliasSymbol = type.getAliasSymbol()
 		if (aliasSymbol) {
-			return aliasSymbol.getName()
+			const name = aliasSymbol.getName()
+			// Use type text for anonymous/inline types (e.g. { deleted: boolean })
+			// so the client gets the real shape instead of "__type"
+			if (isSyntheticTypeName(name)) {
+				return typeText.replace(/import\(".*?"\)\./g, '')
+			}
+			return name
 		}
 
 		return typeText.replace(/import\(".*?"\)\./g, '')

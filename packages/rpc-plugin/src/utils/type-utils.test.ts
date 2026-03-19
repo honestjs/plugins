@@ -1,6 +1,6 @@
 import { Project } from 'ts-morph'
 import { describe, expect, it } from 'vitest'
-import { extractNamedType } from './type-utils'
+import { extractNamedType, isSyntheticTypeName } from './type-utils'
 
 function getParamType(source: string, paramIndex = 0) {
 	const project = new Project({ useInMemoryFileSystem: true })
@@ -56,6 +56,28 @@ describe('type-utils', () => {
 			`)
 			expect(type).not.toBeNull()
 			expect(extractNamedType(type!)).toBe('Bar')
+		})
+
+		it('returns null for anonymous/synthetic types (e.g. __type)', () => {
+			const type = getParamType(`
+				function f(x: { deleted: boolean }) {}
+			`)
+			expect(type).not.toBeNull()
+			// Inline object types may be reported as __type by the compiler
+			const name = extractNamedType(type!)
+			expect(name === null || !isSyntheticTypeName(name)).toBe(true)
+		})
+	})
+
+	describe('isSyntheticTypeName', () => {
+		it('returns true for names starting with __', () => {
+			expect(isSyntheticTypeName('__type')).toBe(true)
+			expect(isSyntheticTypeName('__object')).toBe(true)
+		})
+
+		it('returns false for normal type names', () => {
+			expect(isSyntheticTypeName('User')).toBe(false)
+			expect(isSyntheticTypeName('CreateTodoDto')).toBe(false)
 		})
 	})
 })
