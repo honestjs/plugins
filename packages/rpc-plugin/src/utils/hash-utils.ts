@@ -8,6 +8,9 @@ const CHECKSUM_FILENAME = '.rpc-checksum'
 export interface ChecksumData {
 	hash: string
 	files: string[]
+	artifactVersion?: string
+	analysisHash?: string
+	generatorsHash?: string
 }
 
 /**
@@ -30,6 +33,13 @@ export function computeHash(filePaths: string[]): string {
 }
 
 /**
+ * Computes SHA-256 hash for an arbitrary string payload.
+ */
+export function computeContentHash(content: string): string {
+	return createHash('sha256').update(content).digest('hex')
+}
+
+/**
  * Reads the stored checksum from the output directory.
  * Returns null if the file is missing or corrupt.
  */
@@ -43,6 +53,15 @@ export function readChecksum(outputDir: string): ChecksumData | null {
 		const data = JSON.parse(raw) as ChecksumData
 
 		if (typeof data.hash !== 'string' || !Array.isArray(data.files)) {
+			return null
+		}
+		if (data.artifactVersion !== undefined && typeof data.artifactVersion !== 'string') {
+			return null
+		}
+		if (data.analysisHash !== undefined && typeof data.analysisHash !== 'string') {
+			return null
+		}
+		if (data.generatorsHash !== undefined && typeof data.generatorsHash !== 'string') {
 			return null
 		}
 

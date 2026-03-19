@@ -6,7 +6,7 @@ import { ClassDeclaration, Project } from 'ts-morph'
 
 import { DEFAULT_OPTIONS, LOG_PREFIX } from './constants/defaults'
 import { TypeScriptClientGenerator } from './generators'
-import { computeHash, readChecksum, writeChecksum } from './utils/hash-utils'
+import { computeContentHash, computeHash, readChecksum, writeChecksum } from './utils/hash-utils'
 import { parseRpcArtifact, RPC_ARTIFACT_VERSION } from './utils/artifact-contract'
 import { writeJsonAtomic } from './utils/atomic-file-utils'
 import { AnalysisGraphService } from './services/analysis-graph.service'
@@ -181,6 +181,7 @@ export class RPCPlugin implements IPlugin {
 		const { force, dryRun } = options
 		const warnings: string[] = []
 		let cacheState: RPCDiagnostics['cache'] = force ? 'bypass' : 'miss'
+		const generatorsHash = this.computeGeneratorsHash()
 
 		try {
 			this.log('Starting comprehensive RPC analysis...')
@@ -199,7 +200,13 @@ export class RPCPlugin implements IPlugin {
 				const currentHash = computeHash(filePaths)
 				const stored = readChecksum(this.outputDir)
 
-				if (stored && stored.hash === currentHash && this.outputFilesExist()) {
+				if (
+					stored &&
+					stored.hash === currentHash &&
+					stored.generatorsHash === generatorsHash &&
+					stored.artifactVersion === RPC_ARTIFACT_VERSION &&
+					this.outputFilesExist()
+				) {
 					if (this.loadArtifactFromDisk()) {
 						cacheState = 'hit'
 						this.logDebug('Source files unchanged - skipping regeneration')
@@ -252,8 +259,18 @@ export class RPCPlugin implements IPlugin {
 			}
 
 			if (!dryRun) {
+				const analysisHash = computeContentHash(
+					JSON.stringify({ routes: this.analyzedRoutes, schemas: this.analyzedSchemas })
+				)
+
 				// Write checksum after successful generation
-				await writeChecksum(this.outputDir, { hash: computeHash(filePaths), files: filePaths })
+				await writeChecksum(this.outputDir, {
+					hash: computeHash(filePaths),
+					files: filePaths,
+					artifactVersion: RPC_ARTIFACT_VERSION,
+					analysisHash,
+					generatorsHash
+				})
 				await this.writeArtifactToDisk()
 			}
 
@@ -405,6 +422,11 @@ export class RPCPlugin implements IPlugin {
 
 	private hasTypeScriptGenerator(): boolean {
 		return this.generators.some((generator) => generator.name === 'typescript-client')
+	}
+
+	private computeGeneratorsHash(): string {
+		const generatorNames = this.generators.map((generator) => generator.name).sort()
+		return computeContentHash(JSON.stringify(generatorNames))
 	}
 
 	private publishArtifact(app: Application): void {

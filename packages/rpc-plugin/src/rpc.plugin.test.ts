@@ -505,6 +505,22 @@ describe('RPCPlugin', () => {
 			expect(plugin.getDiagnostics()?.cache).toBe('miss')
 		})
 
+		it('reports cache hit on second analysis when nothing changed', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-cache-hit-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			await plugin.analyze({ force: false })
+			expect(plugin.getDiagnostics()?.cache).toBe('miss')
+
+			await plugin.analyze({ force: false })
+			expect(plugin.getDiagnostics()?.cache).toBe('hit')
+		})
+
 		it('reports cache bypass when force=true', async () => {
 			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-cache-bypass-'))
 			tempDirs.push(outputDir)
@@ -516,6 +532,27 @@ describe('RPCPlugin', () => {
 
 			await plugin.analyze({ force: true })
 			expect(plugin.getDiagnostics()?.cache).toBe('bypass')
+		})
+	})
+
+	describe('analysis queue', () => {
+		it('serializes concurrent analyze calls without throwing', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-queue-'))
+			tempDirs.push(outputDir)
+			const plugin = new RPCPlugin({
+				tsConfigPath: validTsConfigPath,
+				outputDir,
+				generateOnInit: false
+			})
+
+			await Promise.all([
+				plugin.analyze({ force: true, dryRun: true }),
+				plugin.analyze({ force: true, dryRun: true }),
+				plugin.analyze({ force: true, dryRun: true })
+			])
+
+			expect(plugin.getDiagnostics()).not.toBeNull()
+			expect(plugin.getDiagnostics()?.dryRun).toBe(true)
 		})
 	})
 

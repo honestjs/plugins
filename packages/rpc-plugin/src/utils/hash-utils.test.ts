@@ -120,7 +120,13 @@ describe('hash-utils', () => {
 	describe('writeChecksum', () => {
 		it('writes then readChecksum round-trips', async () => {
 			const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-test-'))
-			const data = { hash: 'deadbeef', files: ['/src/a.ts', '/src/b.ts'] }
+			const data = {
+				hash: 'deadbeef',
+				files: ['/src/a.ts', '/src/b.ts'],
+				artifactVersion: '1',
+				analysisHash: 'a'.repeat(64),
+				generatorsHash: 'b'.repeat(64)
+			}
 			try {
 				await writeChecksum(dir, data)
 				const read = readChecksum(dir)

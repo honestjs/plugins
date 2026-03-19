@@ -2,9 +2,22 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { ModuleKind, ScriptTarget, transpileModule } from 'typescript'
 import { TypeScriptClientGenerator } from './typescript-client.generator'
 import type { ExtendedRouteInfo } from '../types/route.types'
 import type { SchemaInfo } from '../types/schema.types'
+
+async function loadGeneratedClientModule(clientPath: string): Promise<any> {
+	const source = fs.readFileSync(clientPath, 'utf-8')
+	const transpiled = transpileModule(source, {
+		compilerOptions: {
+			module: ModuleKind.ESNext,
+			target: ScriptTarget.ES2022
+		}
+	}).outputText
+
+	return import(`data:text/javascript;charset=utf-8,${encodeURIComponent(transpiled)}`)
+}
 
 const mockRoute: ExtendedRouteInfo = {
 	method: 'GET',
@@ -352,5 +365,93 @@ describe('TypeScriptClientGenerator', () => {
 		await generator.generateClient([mockRoute], [mockSchema])
 
 		expect(fs.existsSync(path.join(nestedDir, 'client.ts'))).toBe(true)
+	})
+
+	it('executes request and response interceptors at runtime', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const generator = new TypeScriptClientGenerator(outputDir)
+		const route: ExtendedRouteInfo = {
+			...mockRoute,
+			controller: 'TestController',
+			handler: 'ping',
+			method: 'GET',
+			fullPath: '/ping',
+			parameters: [],
+			returns: '{ ok: boolean }'
+		}
+
+		const generated = await generator.generateClient([route], [])
+		const mod = await loadGeneratedClientModule(generated.clientFile as string)
+		const ApiClient = mod.ApiClient as any
+
+		let calledUrl = ''
+		let calledHeaders: Record<string, string> = {}
+		const fetchFn = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+			calledUrl = String(input)
+			calledHeaders = (init?.headers || {}) as Record<string, string>
+			return new Response(JSON.stringify({ ok: true }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' }
+			})
+		}
+
+		const client = new ApiClient('https://api.example.com', {
+			fetchFn,
+			requestInterceptors: [
+				(url: string, init: RequestInit) => ({
+					url: `${url}?intercepted=1`,
+					init: {
+						...init,
+						headers: {
+							...(init.headers as Record<string, string>),
+							'X-Test-Interceptor': 'yes'
+						}
+					}
+				})
+			],
+			responseInterceptors: [
+				() =>
+					new Response(JSON.stringify({ ok: true, intercepted: true }), {
+						status: 200,
+						headers: { 'content-type': 'application/json' }
+					})
+			]
+		})
+
+		const result = await client.test.ping()
+
+		expect(calledUrl).toContain('/ping?intercepted=1')
+		expect(calledHeaders['X-Test-Interceptor']).toBe('yes')
+		expect(result).toEqual({ ok: true, intercepted: true })
+	})
+
+	it('throws ApiError with message from json error response', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const generator = new TypeScriptClientGenerator(outputDir)
+		const route: ExtendedRouteInfo = {
+			...mockRoute,
+			controller: 'TestController',
+			handler: 'fail',
+			method: 'GET',
+			fullPath: '/fail',
+			parameters: [],
+			returns: 'void'
+		}
+
+		const generated = await generator.generateClient([route], [])
+		const mod = await loadGeneratedClientModule(generated.clientFile as string)
+		const ApiClient = mod.ApiClient as any
+		const ApiError = mod.ApiError as any
+
+		const fetchFn = async (): Promise<Response> =>
+			new Response(JSON.stringify({ message: 'boom' }), {
+				status: 400,
+				headers: { 'content-type': 'application/json' }
+			})
+
+		const client = new ApiClient('https://api.example.com', { fetchFn })
+
+		await expect(client.test.fail()).rejects.toBeInstanceOf(ApiError)
+		await expect(client.test.fail()).rejects.toMatchObject({ statusCode: 400, message: 'boom' })
 	})
 })
