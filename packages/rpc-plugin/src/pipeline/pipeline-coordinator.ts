@@ -1,5 +1,6 @@
 import type { Project } from 'ts-morph'
 import type { GeneratedClientInfo } from '../types'
+import type { RouteInfo } from 'honestjs'
 import type { PipelineExecutionContext, PipelineExecutionResult, StagedResult } from './pipeline.types'
 import { AnalysisStage } from './analysis-stage'
 import { TransformStage } from './transform-stage'
@@ -32,6 +33,7 @@ export class PipelineCoordinator {
 	async execute(
 		project: Project,
 		controllerPattern: string,
+		appRoutes: readonly RouteInfo[],
 		context: PipelineExecutionContext,
 		cacheHit: boolean = false
 	): Promise<PipelineExecutionResult> {
@@ -41,7 +43,7 @@ export class PipelineCoordinator {
 		try {
 			// Stage 1: Analysis
 			const analysisStart = performance.now()
-			const analysisResult = await this.analysisStage.execute(project, controllerPattern)
+			const analysisResult = await this.analysisStage.execute(project, controllerPattern, appRoutes)
 			const analysisDuration = performance.now() - analysisStart
 
 			this.stagedResults.push({
@@ -82,18 +84,19 @@ export class PipelineCoordinator {
 				finalResult: {
 					routes: emitResult.routes,
 					schemas: emitResult.schemas,
-					warnings: emitResult.warnings
+					warnings: emitResult.warnings,
+					routeWarnings: emitResult.routeWarnings,
+					schemaWarnings: emitResult.schemaWarnings
 				},
+				generatedInfos: emitResult.generatedInfos,
 				totalDuration,
 				cacheHit
 			}
 		} catch (error) {
-			const totalDuration = performance.now() - startTime
-
 			// Capture error in appropriate stage
 			const lastStage = this.stagedResults[this.stagedResults.length - 1]
 			if (lastStage) {
-				;(lastStage as any).errors.push(error instanceof Error ? error.message : String(error))
+				lastStage.errors.push(error instanceof Error ? error.message : String(error))
 			}
 
 			throw new Error(

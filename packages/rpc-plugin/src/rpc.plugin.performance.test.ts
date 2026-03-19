@@ -123,7 +123,7 @@ ${methods}
 		const fixtureDir = await createFixtureProject(10)
 		const duration = await measureAnalyzeDuration(fixtureDir)
 
-		console.log(`⏱️  Small fixture (10 controllers): ${duration.toFixed(2)}ms`)
+		console.log(`[perf] Small fixture (10 controllers): ${duration.toFixed(2)}ms`)
 		expect(duration).toBeLessThan(1500)
 	})
 
@@ -131,7 +131,7 @@ ${methods}
 		const fixtureDir = await createFixtureProject(50)
 		const duration = await measureAnalyzeDuration(fixtureDir)
 
-		console.log(`⏱️  Medium fixture (50 controllers): ${duration.toFixed(2)}ms`)
+		console.log(`[perf] Medium fixture (50 controllers): ${duration.toFixed(2)}ms`)
 		expect(duration).toBeLessThan(5000)
 	})
 
@@ -139,7 +139,7 @@ ${methods}
 		const fixtureDir = await createFixtureProject(100)
 		const duration = await measureAnalyzeDuration(fixtureDir)
 
-		console.log(`⏱️  Large fixture (100+ controllers): ${duration.toFixed(2)}ms`)
+		console.log(`[perf] Large fixture (100+ controllers): ${duration.toFixed(2)}ms`)
 		expect(duration).toBeLessThan(15000)
 	})
 
@@ -173,9 +173,9 @@ ${methods}
 		const warmDuration = performance.now() - startWarm
 		plugin2.dispose()
 
-		console.log(`⏱️  Cold run (30 controllers): ${coldDuration.toFixed(2)}ms`)
-		console.log(`⏱️  Warm run (cache hit): ${warmDuration.toFixed(2)}ms`)
-		console.log(`⏱️  Speedup: ${(coldDuration / warmDuration).toFixed(1)}x`)
+		console.log(`[perf] Cold run (30 controllers): ${coldDuration.toFixed(2)}ms`)
+		console.log(`[perf] Warm run (cache hit): ${warmDuration.toFixed(2)}ms`)
+		console.log(`[perf] Speedup: ${(coldDuration / warmDuration).toFixed(1)}x`)
 
 		// Cache hit should be at least 2x faster
 		expect(warmDuration).toBeLessThan(coldDuration / 2)
@@ -208,11 +208,11 @@ ${methods}
 		const variance = durations.reduce((sum, d) => sum + Math.abs(d - avg), 0) / durations.length
 		const coefficientOfVariation = variance / avg
 
-		console.log(`⏱️  Run 1: ${durations[0]?.toFixed(2)}ms`)
-		console.log(`⏱️  Run 2: ${durations[1]?.toFixed(2)}ms`)
-		console.log(`⏱️  Run 3: ${durations[2]?.toFixed(2)}ms`)
+		console.log(`[perf] Run 1: ${durations[0]?.toFixed(2)}ms`)
+		console.log(`[perf] Run 2: ${durations[1]?.toFixed(2)}ms`)
+		console.log(`[perf] Run 3: ${durations[2]?.toFixed(2)}ms`)
 		console.log(
-			`⏱️  Average: ${avg.toFixed(2)}ms, Variance: ${variance.toFixed(2)}ms (CV: ${(coefficientOfVariation * 100).toFixed(1)}%)`
+			`[perf] Average: ${avg.toFixed(2)}ms, Variance: ${variance.toFixed(2)}ms (CV: ${(coefficientOfVariation * 100).toFixed(1)}%)`
 		)
 
 		// Coefficient of variation should be < 30% (reasonable stability)

@@ -19,10 +19,7 @@ export class TransformStage {
 	 * Execute the transform stage: apply transforms and validators.
 	 */
 	async execute(input: PipelineStageResult, context: PipelineExecutionContext): Promise<PipelineStageResult> {
-		const errors: string[] = []
-
-		// Step 1: Apply post-analysis transforms to mutate state if needed
-		const state: RPCAnalysisState = {
+		let state: RPCAnalysisState = {
 			routes: input.routes,
 			schemas: input.schemas,
 			warnings: [...input.warnings],
@@ -31,42 +28,35 @@ export class TransformStage {
 			outputDir: context.outputDir
 		}
 
+		// Step 1: Apply post-analysis transforms
 		for (const transform of this.postAnalysisTransforms) {
-			try {
-				const transformed = await transform(state)
-				// Update state with transformed values
-				;(state as any).routes = transformed.routes
-				;(state as any).schemas = transformed.schemas
-				;(state as any).warnings = transformed.warnings
-			} catch (error) {
-				errors.push(`Post-analysis transform failed: ${error instanceof Error ? error.message : String(error)}`)
-			}
+			state = await transform(state)
 		}
 
 		// Step 2: Run pre-emit validators
 		for (const validator of this.preEmitValidators) {
-			try {
-				await validator(state)
-			} catch (error) {
-				errors.push(`Pre-emit validation failed: ${error instanceof Error ? error.message : String(error)}`)
-			}
+			await validator(state)
 		}
 
 		// Step 3: Enforce strict mode constraints
-		if (context.mode === 'strict') {
-			if (context.failOnSchemaError && state.warnings.some((w) => w.includes('schema'))) {
-				errors.push('Schema warnings encountered in strict mode')
+		if (context.mode === 'strict' && context.failOnSchemaError) {
+			if (input.schemaWarnings.length > 0) {
+				throw new Error(`Schema warnings encountered in strict mode: ${input.schemaWarnings.join('; ')}`)
 			}
 		}
 
-		if (errors.length > 0) {
-			throw new Error(`Transform stage failed: ${errors.join('; ')}`)
+		if (context.mode === 'strict' && context.failOnRouteAnalysisWarning) {
+			if (input.routeWarnings.length > 0) {
+				throw new Error(`Route analysis warnings encountered in strict mode: ${input.routeWarnings.join('; ')}`)
+			}
 		}
 
 		return {
 			routes: state.routes,
 			schemas: state.schemas,
-			warnings: state.warnings
+			warnings: state.warnings,
+			routeWarnings: input.routeWarnings,
+			schemaWarnings: input.schemaWarnings
 		}
 	}
 }

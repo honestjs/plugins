@@ -12,6 +12,7 @@ import { writeJsonAtomic } from './utils/atomic-file-utils'
 import { AnalysisGraphService } from './services/analysis-graph.service'
 import { RouteAnalyzerService } from './services/route-analyzer.service'
 import { SchemaGeneratorService } from './services/schema-generator.service'
+import { AnalysisStage, EmitStage, PipelineCoordinator, TransformStage } from './pipeline'
 import type { ExtendedRouteInfo, GeneratedClientInfo, RPCGenerator, RPCGeneratorCapability, SchemaInfo } from './types'
 
 export type RPCMode = 'strict' | 'best-effort'
@@ -279,10 +280,11 @@ export class RPCPlugin implements IPlugin {
 
 			// Create a single shared ts-morph project for both services
 			this.dispose()
-			this.project = new Project({ tsConfigFilePath: this.tsConfigPath })
-			this.project.addSourceFilesAtPaths([this.controllerPattern])
+			const project = new Project({ tsConfigFilePath: this.tsConfigPath })
+			project.addSourceFilesAtPaths([this.controllerPattern])
+			this.project = project
 
-			const controllerSourceFiles = this.project.getSourceFiles(this.controllerPattern)
+			const controllerSourceFiles = project.getSourceFiles(this.controllerPattern)
 
 			// Hash check: skip if controller files are unchanged since last generation
 			const filePaths = controllerSourceFiles.map((f) => f.getFilePath())
@@ -322,53 +324,27 @@ export class RPCPlugin implements IPlugin {
 			this.analyzedSchemas = []
 			this.generatedInfos = []
 
-			const analysisGraph = this.analysisGraphBuilder.build(controllerSourceFiles)
-
-			// Step 1: Analyze routes and extract type information
 			const appRoutes = await this.applyPreAnalysisFilters(this.app?.getRoutes() ?? [])
-			this.analyzedRoutes = await this.routeAnalyzer.analyzeControllerMethodsWithControllers(
-				appRoutes,
-				analysisGraph.controllers
+			const pipeline = new PipelineCoordinator(
+				new AnalysisStage(this.routeAnalyzer, this.schemaGenerator, this.analysisGraphBuilder),
+				new TransformStage(this.postAnalysisTransforms, this.preEmitValidators),
+				new EmitStage(this.generators, this.postEmitReporters)
 			)
-			warnings.push(...this.routeAnalyzer.getWarnings())
 
-			// Step 2: Generate schemas from the types we found
-			this.analyzedSchemas = await this.schemaGenerator.generateSchemasFromCollectedTypes(
-				analysisGraph.collectedTypes
-			)
-			warnings.push(...this.schemaGenerator.getWarnings())
-
-			const transformed = await this.applyPostAnalysisTransforms({
-				routes: this.analyzedRoutes,
-				schemas: this.analyzedSchemas,
-				warnings,
+			const pipelineResult = await pipeline.execute(project, this.controllerPattern, appRoutes, {
+				outputDir: this.outputDir,
 				dryRun,
 				mode: this.mode,
-				outputDir: this.outputDir
-			})
-			this.analyzedRoutes = [...transformed.routes]
-			this.analyzedSchemas = [...transformed.schemas]
-			warnings.splice(0, warnings.length, ...transformed.warnings)
-
-			if (this.failOnRouteAnalysisWarning && this.routeAnalyzer.getWarnings().length > 0) {
-				throw new Error(
-					`Route analysis warnings encountered in strict mode: ${this.routeAnalyzer.getWarnings().join('; ')}`
-				)
-			}
-
-			await this.runPreEmitValidators({
-				routes: this.analyzedRoutes,
-				schemas: this.analyzedSchemas,
-				warnings,
-				dryRun,
-				mode: this.mode,
-				outputDir: this.outputDir
+				failOnSchemaError: this.failOnSchemaError,
+				failOnRouteAnalysisWarning: this.failOnRouteAnalysisWarning,
+				pluginApiVersion: RPC_PLUGIN_API_VERSION,
+				pluginCapabilities: RPC_PLUGIN_CAPABILITIES
 			})
 
-			// Step 3: Run configured generators
-			if (!dryRun) {
-				this.generatedInfos = await this.runGenerators()
-			}
+			this.analyzedRoutes = [...pipelineResult.finalResult.routes]
+			this.analyzedSchemas = [...pipelineResult.finalResult.schemas]
+			this.generatedInfos = [...pipelineResult.generatedInfos]
+			warnings.splice(0, warnings.length, ...pipelineResult.finalResult.warnings)
 
 			if (!dryRun) {
 				const analysisHash = computeContentHash(
@@ -396,16 +372,6 @@ export class RPCPlugin implements IPlugin {
 				warnings
 			}
 			await this.writeDiagnosticsToDisk()
-
-			await this.runPostEmitReporters({
-				routes: this.analyzedRoutes,
-				schemas: this.analyzedSchemas,
-				warnings,
-				dryRun,
-				mode: this.mode,
-				outputDir: this.outputDir,
-				generatedInfos: this.generatedInfos
-			})
 
 			this.log(
 				`✅ RPC analysis complete: ${this.analyzedRoutes.length} routes, ${this.analyzedSchemas.length} schemas`

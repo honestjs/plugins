@@ -1,4 +1,4 @@
-import type { GeneratedClientInfo, ExtendedRouteInfo, SchemaInfo, RPCGenerator } from '../types'
+import type { GeneratedClientInfo, RPCGenerator } from '../types'
 import type { RPCPostEmitReporter } from '../rpc.plugin'
 import type { PipelineExecutionContext, PipelineStageResult } from './pipeline.types'
 
@@ -24,41 +24,22 @@ export class EmitStage {
 		context: PipelineExecutionContext
 	): Promise<PipelineStageResult & { readonly generatedInfos: readonly GeneratedClientInfo[] }> {
 		const generatedInfos: GeneratedClientInfo[] = []
-		const errors: string[] = []
 
 		// Skip generation on dryRun
 		if (!context.dryRun) {
 			// Step 1: Run generators in parallel (outputs must be isolated)
-			const generatorResults = await Promise.allSettled(
+			const results = await Promise.all(
 				this.generators.map((generator) =>
 					generator.generate({
 						outputDir: context.outputDir,
 						routes: input.routes,
 						schemas: input.schemas,
-						pluginApiVersion: '1',
-						pluginCapabilities: [
-							'routes',
-							'schemas',
-							'analysis-hooks',
-							'atomic-persistence',
-							'client-interceptors'
-						]
+						pluginApiVersion: context.pluginApiVersion,
+						pluginCapabilities: context.pluginCapabilities
 					})
 				)
 			)
-
-			for (let i = 0; i < generatorResults.length; i++) {
-				const result = generatorResults[i]
-				const generator = this.generators[i]
-
-				if (result.status === 'fulfilled') {
-					generatedInfos.push(result.value)
-				} else {
-					errors.push(
-						`Generator "${generator?.name ?? 'unknown'}" failed: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`
-					)
-				}
-			}
+			generatedInfos.push(...results)
 		}
 
 		// Step 2: Run post-emit reporters (informational, don't block on failure)
@@ -73,22 +54,15 @@ export class EmitStage {
 		}
 
 		for (const reporter of this.postEmitReporters) {
-			try {
-				await reporter(emitState)
-			} catch (error) {
-				// Log but don't fail on reporter errors
-				console.warn(`Post-emit reporter failed: ${error instanceof Error ? error.message : String(error)}`)
-			}
-		}
-
-		if (errors.length > 0 && !context.dryRun) {
-			throw new Error(`Emit stage failed: ${errors.join('; ')}`)
+			await reporter(emitState)
 		}
 
 		return {
 			routes: input.routes,
 			schemas: input.schemas,
 			warnings: input.warnings,
+			routeWarnings: input.routeWarnings,
+			schemaWarnings: input.schemaWarnings,
 			generatedInfos
 		}
 	}
