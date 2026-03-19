@@ -108,7 +108,8 @@ ${methods}
 		const plugin = new RPCPlugin({
 			tsConfigPath: path.join(fixtureDir, 'tsconfig.json'),
 			controllerPattern: path.join(fixtureDir, 'src/**/*.controller.ts'),
-			outputDir: path.join(fixtureDir, 'generated')
+			outputDir: path.join(fixtureDir, 'generated'),
+			logLevel: 'silent'
 		})
 
 		const startTime = performance.now()
@@ -153,7 +154,8 @@ ${methods}
 		const plugin1 = new RPCPlugin({
 			tsConfigPath: path.join(fixtureDir, 'tsconfig.json'),
 			controllerPattern: path.join(fixtureDir, 'src/**/*.controller.ts'),
-			outputDir: path.join(fixtureDir, 'generated')
+			outputDir: path.join(fixtureDir, 'generated'),
+			logLevel: 'silent'
 		})
 
 		const startCold = performance.now()
@@ -165,7 +167,8 @@ ${methods}
 		const plugin2 = new RPCPlugin({
 			tsConfigPath: path.join(fixtureDir, 'tsconfig.json'),
 			controllerPattern: path.join(fixtureDir, 'src/**/*.controller.ts'),
-			outputDir: path.join(fixtureDir, 'generated')
+			outputDir: path.join(fixtureDir, 'generated'),
+			logLevel: 'silent'
 		})
 
 		const startWarm = performance.now()
@@ -193,7 +196,8 @@ ${methods}
 			const plugin = new RPCPlugin({
 				tsConfigPath: path.join(fixtureDir, 'tsconfig.json'),
 				controllerPattern: path.join(fixtureDir, 'src/**/*.controller.ts'),
-				outputDir: path.join(fixtureDir, 'generated')
+				outputDir: path.join(fixtureDir, 'generated'),
+				logLevel: 'silent'
 			})
 
 			const start = performance.now()
