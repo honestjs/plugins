@@ -307,18 +307,21 @@ ${this.generateControllerMethods(controllerGroups)}
 
 	/**
 	 * Extracts the proper return type from route analysis.
+	 * Normalizes types that reference external symbols (e.g. Hono's TypedResponse)
+	 * so the generated client is self-contained.
 	 */
 	private extractReturnType(returns?: string): string {
 		if (!returns) return 'any'
 
 		// Handle Promise<T> types
 		const promiseMatch = returns.match(/Promise<(.+)>/)
-		if (promiseMatch) {
-			return promiseMatch[1]
-		}
+		let type = promiseMatch ? promiseMatch[1] : returns
 
-		// Handle other types
-		return returns
+		// Strip TypedResponse<...> (Hono) so we don't reference undefined types in the client
+		type = type.replace(/\s*&\s*TypedResponse<[^>]+>/g, '').trim()
+		if (!type) return 'Response'
+
+		return type
 	}
 
 	/**
