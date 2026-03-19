@@ -258,7 +258,9 @@ describe('RPCPlugin', () => {
 	})
 
 	describe('generators', () => {
-		it('runs only explicitly provided generators', async () => {
+		it('runs only explicitly provided generators through analyze pipeline', async () => {
+			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-custom-generator-'))
+			tempDirs.push(outputDir)
 			const generate = vi.fn(async () => ({
 				generator: 'custom-generator',
 				generatedAt: new Date().toISOString(),
@@ -270,13 +272,14 @@ describe('RPCPlugin', () => {
 			}
 			const plugin = new RPCPlugin({
 				tsConfigPath: validTsConfigPath,
-				outputDir: path.join(__dirname, '..', 'generated'),
+				outputDir,
+				generateOnInit: false,
 				generators: [customGenerator]
 			})
 
-			;(plugin as any).analyzedRoutes = []
-			;(plugin as any).analyzedSchemas = []
-			const results = await (plugin as any).runGenerators()
+			await plugin.analyze({ force: true, dryRun: false })
+
+			const results = plugin.getGenerationInfos()
 
 			expect(generate).toHaveBeenCalledTimes(1)
 			expect(generate).toHaveBeenCalledWith(
@@ -289,17 +292,17 @@ describe('RPCPlugin', () => {
 			expect(results[0]?.generator).toBe('custom-generator')
 		})
 
-		it('uses TypeScript generator by default when generators are not provided', async () => {
+		it('uses TypeScript generator by default through analyze pipeline', async () => {
 			const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-plugin-'))
 			tempDirs.push(outputDir)
 			const plugin = new RPCPlugin({
 				tsConfigPath: validTsConfigPath,
-				outputDir
+				outputDir,
+				generateOnInit: false
 			})
 
-			;(plugin as any).analyzedRoutes = []
-			;(plugin as any).analyzedSchemas = []
-			const results = await (plugin as any).runGenerators()
+			await plugin.analyze({ force: true, dryRun: false })
+			const results = plugin.getGenerationInfos()
 
 			expect(results).toHaveLength(1)
 			expect(results[0]?.generator).toBe('typescript-client')

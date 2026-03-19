@@ -492,24 +492,6 @@ export class RPCPlugin implements IPlugin {
 		}
 	}
 
-	private async runGenerators(): Promise<GeneratedClientInfo[]> {
-		for (const generator of this.generators) {
-			this.log(`Running generator: ${generator.name}`)
-		}
-
-		return Promise.all(
-			this.generators.map((generator) =>
-				generator.generate({
-					outputDir: this.outputDir,
-					routes: this.analyzedRoutes,
-					schemas: this.analyzedSchemas,
-					pluginApiVersion: RPC_PLUGIN_API_VERSION,
-					pluginCapabilities: RPC_PLUGIN_CAPABILITIES
-				})
-			)
-		)
-	}
-
 	private hasTypeScriptGenerator(): boolean {
 		return this.generators.some((generator) => generator.name === 'typescript-client')
 	}
@@ -520,26 +502,6 @@ export class RPCPlugin implements IPlugin {
 			currentRoutes = await filter(currentRoutes)
 		}
 		return currentRoutes
-	}
-
-	private async applyPostAnalysisTransforms(state: RPCAnalysisState): Promise<RPCAnalysisState> {
-		let currentState = state
-		for (const transform of this.postAnalysisTransforms) {
-			currentState = await transform(currentState)
-		}
-		return currentState
-	}
-
-	private async runPreEmitValidators(state: RPCAnalysisState): Promise<void> {
-		for (const validator of this.preEmitValidators) {
-			await validator(state)
-		}
-	}
-
-	private async runPostEmitReporters(state: RPCEmitState): Promise<void> {
-		for (const reporter of this.postEmitReporters) {
-			await reporter(state)
-		}
 	}
 
 	private computeGeneratorsHash(): string {
