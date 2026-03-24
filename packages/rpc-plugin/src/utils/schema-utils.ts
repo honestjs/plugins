@@ -20,7 +20,7 @@ export function mapJsonSchemaTypeToTypeScript(schema: Record<string, any>): stri
 			return `${itemType}[]`
 		}
 		case 'object':
-			return 'Record<string, any>'
+			return `{\n${generateTypeScriptInterfaceProperties(schema)}}`
 		default:
 			return 'any'
 	}
