@@ -45,23 +45,30 @@ export function generateTypeScriptInterface(typeName: string, schema: Record<str
 			return `export type ${typeName} = ${union}`
 		}
 
-		const properties = typeDefinition.properties || {}
-		const required = typeDefinition.required || []
-
 		let interfaceCode = `export interface ${typeName} {\n`
 
-		for (const [propName, propSchema] of Object.entries(properties)) {
-			const isRequired = required.includes(propName)
-			const type = mapJsonSchemaTypeToTypeScript(propSchema as Record<string, any>)
-			const optional = isRequired ? '' : '?'
-
-			interfaceCode += `\t${propName}${optional}: ${type}\n`
-		}
-
+		interfaceCode += generateTypeScriptInterfaceProperties(typeDefinition)
 		interfaceCode += '}'
 		return interfaceCode
 	} catch (error) {
 		console.error(`Failed to generate TypeScript interface for ${typeName}:`, error)
 		return `export interface ${typeName} {\n\t// Failed to generate interface\n}`
 	}
+}
+
+export function generateTypeScriptInterfaceProperties(schema: Record<string, any>): string {
+	const properties = schema.properties || {}
+	const required = schema.required || []
+
+	let interfaceCode = ''
+
+	for (const [propName, propSchema] of Object.entries(properties)) {
+		const isRequired = required.includes(propName)
+		const type = mapJsonSchemaTypeToTypeScript(propSchema as Record<string, any>)
+		const optional = isRequired ? '' : '?'
+
+		interfaceCode += `\t${propName}${optional}: ${type}\n`
+	}
+
+	return interfaceCode
 }
