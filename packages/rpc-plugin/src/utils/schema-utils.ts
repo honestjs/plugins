@@ -22,6 +22,9 @@ export function mapJsonSchemaTypeToTypeScript(schema: Record<string, any>): stri
 		case 'object':
 			return `{\n${generateTypeScriptInterfaceProperties(schema)}}`
 		default:
+			if (schema?.$ref) {
+				return schema?.$ref.replace('#/definitions/', '')
+			}
 			return 'any'
 	}
 }
