@@ -26,7 +26,17 @@ describe('schema-utils', () => {
 		})
 
 		it('maps object type', () => {
-			expect(mapJsonSchemaTypeToTypeScript({ type: 'object' })).toBe('Record<string, any>')
+			expect(
+				mapJsonSchemaTypeToTypeScript({
+					type: 'object',
+					properties: {
+						id: { type: 'number' },
+						name: { type: 'string' }
+					},
+					required: ['id'],
+					additionalProperties: false
+				})
+			).toBe('{\n\tid: number\n\tname?: string\n}')
 		})
 
 		it('returns any for unknown or missing type', () => {
