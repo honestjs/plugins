@@ -19,8 +19,28 @@ export function mapJsonSchemaTypeToTypeScript(schema: Record<string, any>, inden
 			const itemType = mapJsonSchemaTypeToTypeScript(schema.items || {}, indentation)
 			return `${itemType}[]`
 		}
-		case 'object':
-			return `{\n${generateTypeScriptInterfaceProperties(schema, `${indentation}\t`)}${indentation}}`
+		case 'object': {
+			const hasProperties = Object.keys(schema.properties || {}).length > 0
+			const objectLiteral = `{\n${generateTypeScriptInterfaceProperties(schema, `${indentation}\t`)}${indentation}}`
+			const additional = schema.additionalProperties
+
+			// Keep open object semantics for map/dictionary schemas.
+			if (additional !== undefined && additional !== false) {
+				const additionalType =
+					additional === true
+						? 'unknown'
+						: mapJsonSchemaTypeToTypeScript(additional as Record<string, any>, indentation)
+				const recordType = `Record<string, ${additionalType}>`
+				return hasProperties ? `${objectLiteral} & ${recordType}` : recordType
+			}
+
+			if (additional === false) {
+				return hasProperties ? objectLiteral : 'Record<string, never>'
+			}
+
+			// additionalProperties omitted: treat empty object as open dictionary.
+			return hasProperties ? objectLiteral : 'Record<string, unknown>'
+		}
 		default:
 			if (schema?.$ref) {
 				return schema?.$ref.replace('#/definitions/', '')
