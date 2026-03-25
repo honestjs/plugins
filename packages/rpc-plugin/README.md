@@ -558,7 +558,7 @@ try {
 	})
 } catch (error) {
 	if (error instanceof ApiError) {
-		console.error(`API Error ${error.statusCode}: ${error.message}`)
+		console.error(`API Error ${error.statusCode}: ${error.message}`, error?.responseData)
 	} else {
 		console.error('Unexpected error:', error)
 	}
