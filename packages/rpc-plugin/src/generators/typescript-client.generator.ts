@@ -67,10 +67,11 @@ export class TypeScriptClientGenerator implements RPCGenerator {
 /**
  * API Error class
  */
-export class ApiError extends Error {
+export class ApiError<ResponseData = any> extends Error {
 	constructor(
 		public statusCode: number,
-		message: string
+		message: string,
+		public responseData?: ResponseData
 	) {
 		super(message)
 		this.name = 'ApiError'
@@ -284,7 +285,7 @@ export class ApiClient {
 						: typeof responseData === 'string' && responseData.trim()
 							? responseData
 							: 'Request failed'
-				throw new ApiError(response.status, message)
+				throw new ApiError(response.status, message, responseData)
 			}
 
 			return responseData as T

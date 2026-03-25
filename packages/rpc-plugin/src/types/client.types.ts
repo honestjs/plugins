@@ -32,10 +32,11 @@ export type ResponseInterceptor = (response: Response) => Response | Promise<Res
 /**
  * API Error class
  */
-export class ApiError extends Error {
+export class ApiError<ResponseData = any> extends Error {
 	constructor(
 		public statusCode: number,
-		message: string
+		message: string,
+		public responseData?: ResponseData
 	) {
 		super(message)
 		this.name = 'ApiError'
