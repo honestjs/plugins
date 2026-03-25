@@ -183,6 +183,64 @@ describe('TypeScriptClientGenerator', () => {
 		expect(content).toContain('export interface UserDto')
 	})
 
+	it('insure deduplicated interfaces and types', async () => {
+		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
+		const schemas: SchemaInfo[] = [
+			{
+				type: 'UserRole',
+				schema: {
+					definitions: {
+						UserRole: {
+							type: 'string',
+							enum: ['user', 'admin']
+						}
+					}
+				},
+				typescriptType: "export type UserRole = 'user' | 'admin'"
+			},
+			{
+				type: 'UserDto',
+				schema: {
+					definitions: {
+						UserDto: {
+							properties: {
+								id: { type: 'string' },
+								role: { $ref: '#/definitions/UserRole' }
+							},
+							required: ['id']
+						},
+						UserRole: {
+							type: 'string',
+							enum: ['user', 'admin']
+						}
+					}
+				},
+				typescriptType:
+					"export interface UserDto {\n  id: string\n  role: UserRole\n}\n\nexport type UserRole = 'user' | 'admin'"
+			},
+			{
+				type: 'UserDto',
+				schema: {
+					definitions: {
+						UserDto: {
+							properties: { id: { type: 'string' } },
+							required: ['id']
+						}
+					}
+				},
+				typescriptType: 'export interface UserDto {\n  id: string\n}'
+			}
+		]
+		const generator = new TypeScriptClientGenerator(outputDir)
+
+		await generator.generateClient([], schemas)
+
+		const content = fs.readFileSync(path.join(outputDir, 'client.ts'), 'utf-8')
+
+		expect(content.match(/export interface UserDto {/g)).toHaveLength(1)
+		expect(content.match(/export type UserRole =/g)).toHaveLength(1)
+	})
+
 	it('handles routes with query parameters', async () => {
 		outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpc-client-'))
 		const route: ExtendedRouteInfo = {
