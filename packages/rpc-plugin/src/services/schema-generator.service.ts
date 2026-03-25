@@ -100,8 +100,13 @@ export class SchemaGeneratorService {
 				const definitionsKeys = Object.keys(schema?.definitions || {}) || []
 				const types: string[] = []
 
-				for (const definitionKey of definitionsKeys) {
-					types.push(generateTypeScriptInterface(definitionKey, schema))
+				// fallback when schema has no definitions
+				if (definitionsKeys.length === 0) {
+					types.push(generateTypeScriptInterface(typeName, schema))
+				} else {
+					for (const definitionKey of definitionsKeys) {
+						types.push(generateTypeScriptInterface(definitionKey, schema))
+					}
 				}
 
 				schemas.push({
