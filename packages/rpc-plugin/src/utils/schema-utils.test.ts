@@ -36,7 +36,7 @@ describe('schema-utils', () => {
 					required: ['id'],
 					additionalProperties: false
 				})
-			).toBe('{\n\tid: number\n\tname?: string\n}')
+			).toBe('{\n\t\tid: number\n\t\tname?: string\n\t}')
 		})
 
 		it('returns any for unknown or missing type', () => {

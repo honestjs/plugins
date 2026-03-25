@@ -1,7 +1,7 @@
 /**
  * Maps JSON schema types to TypeScript types
  */
-export function mapJsonSchemaTypeToTypeScript(schema: Record<string, any>): string {
+export function mapJsonSchemaTypeToTypeScript(schema: Record<string, any>, indentation = '\t'): string {
 	const type = schema.type as string
 
 	switch (type) {
@@ -16,11 +16,11 @@ export function mapJsonSchemaTypeToTypeScript(schema: Record<string, any>): stri
 		case 'boolean':
 			return 'boolean'
 		case 'array': {
-			const itemType = mapJsonSchemaTypeToTypeScript(schema.items || {})
+			const itemType = mapJsonSchemaTypeToTypeScript(schema.items || {}, indentation)
 			return `${itemType}[]`
 		}
 		case 'object':
-			return `{\n${generateTypeScriptInterfaceProperties(schema)}}`
+			return `{\n${generateTypeScriptInterfaceProperties(schema, `${indentation}\t`)}${indentation}}`
 		default:
 			if (schema?.$ref) {
 				return schema?.$ref.replace('#/definitions/', '')
@@ -59,7 +59,7 @@ export function generateTypeScriptInterface(typeName: string, schema: Record<str
 	}
 }
 
-export function generateTypeScriptInterfaceProperties(schema: Record<string, any>): string {
+export function generateTypeScriptInterfaceProperties(schema: Record<string, any>, indentation = '\t'): string {
 	const properties = schema.properties || {}
 	const required = schema.required || []
 
@@ -67,10 +67,10 @@ export function generateTypeScriptInterfaceProperties(schema: Record<string, any
 
 	for (const [propName, propSchema] of Object.entries(properties)) {
 		const isRequired = required.includes(propName)
-		const type = mapJsonSchemaTypeToTypeScript(propSchema as Record<string, any>)
+		const type = mapJsonSchemaTypeToTypeScript(propSchema as Record<string, any>, indentation)
 		const optional = isRequired ? '' : '?'
 
-		interfaceCode += `\t${propName}${optional}: ${type}\n`
+		interfaceCode += `${indentation}${propName}${optional}: ${type}\n`
 	}
 
 	return interfaceCode
