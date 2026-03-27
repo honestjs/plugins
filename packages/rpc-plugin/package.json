@@ -43,9 +43,9 @@
 		"ts-morph": "^26.0.0"
 	},
 	"devDependencies": {
-		"honestjs": "^0.1.14",
-		"hono": "^4.12.8",
-		"vitest": "^4.1.0"
+		"honestjs": "^0.1.18",
+		"hono": "^4.12.9",
+		"vitest": "^4.1.2"
 	},
 	"peerDependencies": {
 		"honestjs": "^0.1.11",
