@@ -1,5 +1,5 @@
 import fs from 'fs'
-import type { Application, IPlugin, RouteInfo } from 'honestjs'
+import type { Application, ILogger, LogLevel, IPlugin, RouteInfo } from 'honestjs'
 import type { Hono } from 'hono'
 import path from 'path'
 import { ClassDeclaration, Project } from 'ts-morph'
@@ -92,6 +92,8 @@ export interface RPCPluginOptions {
  * Comprehensive RPC plugin that combines route analysis, schema generation, and client generation
  */
 export class RPCPlugin implements IPlugin {
+	declare logger?: ILogger
+
 	private readonly controllerPattern: string
 	private readonly tsConfigPath: string
 	private readonly outputDir: string
@@ -537,33 +539,52 @@ export class RPCPlugin implements IPlugin {
 	// LOGGING UTILITIES
 	// ============================================================================
 
-	/**
-	 * Logs a message with the plugin prefix
-	 */
 	private log(message: string): void {
 		if (this.canLog('info')) {
-			console.log(`${LOG_PREFIX} ${message}`)
+			this.emitLog('info', message)
 		}
 	}
 
-	/**
-	 * Logs an error with the plugin prefix
-	 */
 	private logError(message: string, error?: unknown): void {
 		if (this.canLog('error')) {
-			console.error(`${LOG_PREFIX} ${message}`, error || '')
+			this.emitLog('error', message, {
+				error: error instanceof Error ? error.message : error !== undefined ? String(error) : undefined
+			})
 		}
 	}
 
 	private logWarn(message: string, details?: unknown): void {
 		if (this.canLog('warn')) {
-			console.warn(`${LOG_PREFIX} ${message}`, details || '')
+			this.emitLog('warn', message, details !== undefined ? { details } : undefined)
 		}
 	}
 
 	private logDebug(message: string): void {
 		if (this.canLog('debug')) {
-			console.log(`${LOG_PREFIX} ${message}`)
+			this.emitLog('debug', message)
+		}
+	}
+
+	private emitLog(level: LogLevel, message: string, details?: Record<string, unknown>): void {
+		if (this.logger) {
+			this.logger.emit({
+				level,
+				category: 'plugins',
+				message,
+				details: {
+					plugin: 'rpc-plugin',
+					...details
+				}
+			})
+			return
+		}
+		const prefixed = `${LOG_PREFIX} ${message}`
+		if (level === 'error') {
+			console.error(prefixed, details?.error ?? '')
+		} else if (level === 'warn') {
+			console.warn(prefixed, details?.details ?? '')
+		} else {
+			console.log(prefixed)
 		}
 	}
 

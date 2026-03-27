@@ -52,7 +52,11 @@ export function mapJsonSchemaTypeToTypeScript(schema: Record<string, any>, inden
 /**
  * Generates TypeScript interface or type alias from JSON schema
  */
-export function generateTypeScriptInterface(typeName: string, schema: Record<string, any>): string {
+export function generateTypeScriptInterface(
+	typeName: string,
+	schema: Record<string, any>,
+	onError?: (message: string, details?: unknown) => void
+): string {
 	try {
 		// Use definition when present; otherwise use root schema only if there are no definitions (root-level type)
 		const typeDefinition = schema.definitions?.[typeName] ?? (schema.definitions === undefined ? schema : undefined)
@@ -74,7 +78,7 @@ export function generateTypeScriptInterface(typeName: string, schema: Record<str
 		interfaceCode += '}'
 		return interfaceCode
 	} catch (error) {
-		console.error(`Failed to generate TypeScript interface for ${typeName}:`, error)
+		onError?.(`Failed to generate TypeScript interface for ${typeName}`, error)
 		return `export interface ${typeName} {\n\t// Failed to generate interface\n}`
 	}
 }

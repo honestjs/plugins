@@ -102,10 +102,10 @@ export class SchemaGeneratorService {
 
 				// fallback when schema has no definitions
 				if (definitionsKeys.length === 0) {
-					types.push(generateTypeScriptInterface(typeName, schema))
+					types.push(generateTypeScriptInterface(typeName, schema, this.onWarn))
 				} else {
 					for (const definitionKey of definitionsKeys) {
-						types.push(generateTypeScriptInterface(definitionKey, schema))
+						types.push(generateTypeScriptInterface(definitionKey, schema, this.onWarn))
 					}
 				}
 
