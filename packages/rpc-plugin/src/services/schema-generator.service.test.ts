@@ -195,5 +195,40 @@ describe('SchemaGeneratorService', () => {
 			expect(onWarn).toHaveBeenCalled()
 			expect(onWarn.mock.calls[0][0]).toContain('Failed to generate schema')
 		})
+
+		it('generates interfaces and types for all definitions', async () => {
+			const { project, controllerPattern, tsConfigPath } = createTempProject({
+				'test.controller.ts': `
+					export type UserRole = 'user' | 'admin'
+
+					export interface Post {
+						id: string
+						title: string
+					}
+
+					export interface UserDto {
+						id: string
+						role: UserRole
+						posts: Post[]
+					}
+
+					class TestController {
+						findAll(): UserDto[] {
+							return []
+						}
+					}
+				`
+			})
+
+			const service = new SchemaGeneratorService(controllerPattern, tsConfigPath)
+			const result = await service.generateSchemas(project)
+
+			expect(result.length).toBeGreaterThanOrEqual(1)
+			const userSchema = result.find((s) => s.type === 'UserDto')
+			expect(userSchema).toBeDefined()
+			expect(userSchema!.typescriptType).toMatch(
+				"export interface UserDto {\n\tid: string\n\trole: UserRole\n\tposts: Post[]\n}\n\nexport type UserRole = 'user' | 'admin'\n\nexport interface Post {\n\tid: string\n\ttitle: string\n}"
+			)
+		})
 	})
 })

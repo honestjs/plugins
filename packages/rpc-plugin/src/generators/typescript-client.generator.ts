@@ -386,12 +386,29 @@ ${this.generateControllerMethods(controllerGroups)}
 			return '// No schemas available from integrated Schema Generation\n'
 		}
 
+		// dedupe declarations by type/interface name
+		const seenTypeNames = new Set<string>()
+
 		let content = '// Schema types from integrated Schema Generation\n'
+
 		for (const schemaInfo of schemas) {
-			if (schemaInfo.typescriptType) {
-				content += `${schemaInfo.typescriptType}\n\n`
+			const declarations = schemaInfo.typescriptType?.split('\n\n') || []
+			for (const declaration of declarations) {
+				const match = declaration.match(/^export\s+(?:interface|type)\s+([A-Za-z0-9_]+)/m)
+
+				if (!match) {
+					content += `${declaration}\n\n`
+					continue
+				}
+
+				const typeName = match[1]
+				if (seenTypeNames.has(typeName)) continue
+
+				seenTypeNames.add(typeName)
+				content += `${declaration}\n\n`
 			}
 		}
+
 		return content
 	}
 

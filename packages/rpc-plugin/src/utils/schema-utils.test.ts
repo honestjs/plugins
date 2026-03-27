@@ -26,7 +26,65 @@ describe('schema-utils', () => {
 		})
 
 		it('maps object type', () => {
-			expect(mapJsonSchemaTypeToTypeScript({ type: 'object' })).toBe('Record<string, any>')
+			expect(
+				mapJsonSchemaTypeToTypeScript({
+					type: 'object',
+					properties: {
+						id: { type: 'number' },
+						name: { type: 'string' }
+					},
+					required: ['id'],
+					additionalProperties: false
+				})
+			).toBe('{\n\t\tid: number\n\t\tname?: string\n\t}')
+		})
+
+		it('maps dictionary object type from additionalProperties schema', () => {
+			expect(
+				mapJsonSchemaTypeToTypeScript({
+					type: 'object',
+					additionalProperties: { type: 'string' }
+				})
+			).toBe('Record<string, string>')
+		})
+
+		it('maps dictionary object type from additionalProperties=true', () => {
+			expect(
+				mapJsonSchemaTypeToTypeScript({
+					type: 'object',
+					additionalProperties: true
+				})
+			).toBe('Record<string, unknown>')
+		})
+
+		it('maps object with known properties and additionalProperties', () => {
+			expect(
+				mapJsonSchemaTypeToTypeScript({
+					type: 'object',
+					properties: {
+						id: { type: 'number' }
+					},
+					required: ['id'],
+					additionalProperties: { type: 'string' }
+				})
+			).toBe('{\n\t\tid: number\n\t} & Record<string, string>')
+		})
+
+		it('maps empty object schema to open dictionary when additionalProperties is omitted', () => {
+			expect(
+				mapJsonSchemaTypeToTypeScript({
+					type: 'object'
+				})
+			).toBe('Record<string, unknown>')
+		})
+
+		it('maps additionalProperties=false with no properties to Record<string, never>', () => {
+			expect(
+				mapJsonSchemaTypeToTypeScript({
+					type: 'object',
+					additionalProperties: false
+				})
+			).toBe('Record<string, never>')
 		})
 
 		it('returns any for unknown or missing type', () => {

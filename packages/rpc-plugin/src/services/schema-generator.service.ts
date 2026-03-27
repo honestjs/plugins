@@ -97,12 +97,22 @@ export class SchemaGeneratorService {
 		for (const typeName of collectedTypes) {
 			try {
 				const schema = await this.generateSchemaForType(typeName)
-				const typescriptType = generateTypeScriptInterface(typeName, schema)
+				const definitionsKeys = Object.keys(schema?.definitions || {}) || []
+				const types: string[] = []
+
+				// fallback when schema has no definitions
+				if (definitionsKeys.length === 0) {
+					types.push(generateTypeScriptInterface(typeName, schema))
+				} else {
+					for (const definitionKey of definitionsKeys) {
+						types.push(generateTypeScriptInterface(definitionKey, schema))
+					}
+				}
 
 				schemas.push({
 					type: typeName,
 					schema,
-					typescriptType
+					typescriptType: types.join('\n\n')
 				})
 			} catch (err) {
 				if (this.failOnSchemaError) {

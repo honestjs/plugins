@@ -1,7 +1,7 @@
 /**
  * Maps JSON schema types to TypeScript types
  */
-export function mapJsonSchemaTypeToTypeScript(schema: Record<string, any>): string {
+export function mapJsonSchemaTypeToTypeScript(schema: Record<string, any>, indentation = '\t'): string {
 	const type = schema.type as string
 
 	switch (type) {
@@ -16,12 +16,35 @@ export function mapJsonSchemaTypeToTypeScript(schema: Record<string, any>): stri
 		case 'boolean':
 			return 'boolean'
 		case 'array': {
-			const itemType = mapJsonSchemaTypeToTypeScript(schema.items || {})
+			const itemType = mapJsonSchemaTypeToTypeScript(schema.items || {}, indentation)
 			return `${itemType}[]`
 		}
-		case 'object':
-			return 'Record<string, any>'
+		case 'object': {
+			const hasProperties = Object.keys(schema.properties || {}).length > 0
+			const objectLiteral = `{\n${generateTypeScriptInterfaceProperties(schema, `${indentation}\t`)}${indentation}}`
+			const additional = schema.additionalProperties
+
+			// Keep open object semantics for map/dictionary schemas.
+			if (additional !== undefined && additional !== false) {
+				const additionalType =
+					additional === true
+						? 'unknown'
+						: mapJsonSchemaTypeToTypeScript(additional as Record<string, any>, indentation)
+				const recordType = `Record<string, ${additionalType}>`
+				return hasProperties ? `${objectLiteral} & ${recordType}` : recordType
+			}
+
+			if (additional === false) {
+				return hasProperties ? objectLiteral : 'Record<string, never>'
+			}
+
+			// additionalProperties omitted: treat empty object as open dictionary.
+			return hasProperties ? objectLiteral : 'Record<string, unknown>'
+		}
 		default:
+			if (schema?.$ref) {
+				return schema?.$ref.replace('#/definitions/', '')
+			}
 			return 'any'
 	}
 }
@@ -45,23 +68,30 @@ export function generateTypeScriptInterface(typeName: string, schema: Record<str
 			return `export type ${typeName} = ${union}`
 		}
 
-		const properties = typeDefinition.properties || {}
-		const required = typeDefinition.required || []
-
 		let interfaceCode = `export interface ${typeName} {\n`
 
-		for (const [propName, propSchema] of Object.entries(properties)) {
-			const isRequired = required.includes(propName)
-			const type = mapJsonSchemaTypeToTypeScript(propSchema as Record<string, any>)
-			const optional = isRequired ? '' : '?'
-
-			interfaceCode += `\t${propName}${optional}: ${type}\n`
-		}
-
+		interfaceCode += generateTypeScriptInterfaceProperties(typeDefinition)
 		interfaceCode += '}'
 		return interfaceCode
 	} catch (error) {
 		console.error(`Failed to generate TypeScript interface for ${typeName}:`, error)
 		return `export interface ${typeName} {\n\t// Failed to generate interface\n}`
 	}
+}
+
+export function generateTypeScriptInterfaceProperties(schema: Record<string, any>, indentation = '\t'): string {
+	const properties = schema.properties || {}
+	const required = schema.required || []
+
+	let interfaceCode = ''
+
+	for (const [propName, propSchema] of Object.entries(properties)) {
+		const isRequired = required.includes(propName)
+		const type = mapJsonSchemaTypeToTypeScript(propSchema as Record<string, any>, indentation)
+		const optional = isRequired ? '' : '?'
+
+		interfaceCode += `${indentation}${propName}${optional}: ${type}\n`
+	}
+
+	return interfaceCode
 }
