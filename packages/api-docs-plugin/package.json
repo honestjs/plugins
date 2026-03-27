@@ -40,7 +40,7 @@
 		"directory": "packages/api-docs-plugin"
 	},
 	"devDependencies": {
-		"honestjs": "^0.1.18",
+		"honestjs": "^0.1.19",
 		"hono": "^4.12.9",
 		"reflect-metadata": "^0.2.2",
 		"vitest": "^4.1.2"
