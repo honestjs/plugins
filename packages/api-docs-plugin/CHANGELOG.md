@@ -1,5 +1,11 @@
 # @honestjs/api-docs-plugin
 
+## 1.2.4
+
+### Patch Changes
+
+- cc3f2a8: Update honestjs version
+
 ## 1.2.3
 
 ### Patch Changes

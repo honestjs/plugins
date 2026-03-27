@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.7.7
+
+### Patch Changes
+
+- 6d3fc2c: Add enhanced logging system
+
 ## 1.7.6
 
 ### Patch Changes
