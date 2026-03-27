@@ -1,5 +1,13 @@
 # @honestjs/rpc-plugin
 
+## 1.7.6
+
+### Patch Changes
+
+- f6cebc2: - Increase interface typing coverage
+    - Include response data in ApiError when available
+    - Update dependencies
+
 ## 1.7.5
 
 ### Patch Changes
