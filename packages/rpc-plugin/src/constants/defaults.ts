@@ -7,7 +7,6 @@ export const DEFAULT_OPTIONS = {
 	outputDir: './generated/rpc',
 	generateOnInit: true,
 	mode: 'best-effort',
-	logLevel: 'info',
 	artifactVersion: '1',
 	context: {
 		namespace: 'rpc',
@@ -16,11 +15,6 @@ export const DEFAULT_OPTIONS = {
 		}
 	}
 } as const
-
-/**
- * Log prefix for the RPC plugin
- */
-export const LOG_PREFIX = '[ RPCPlugin ]'
 
 /**
  * Built-in TypeScript types that should not be imported

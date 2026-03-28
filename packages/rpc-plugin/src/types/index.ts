@@ -12,7 +12,6 @@ export type {
 	RPCAnalysisState,
 	RPCDiagnostics,
 	RPCEmitState,
-	RPCLogLevel,
 	RPCMode,
 	RPCPluginOptions,
 	RPCPostAnalysisTransform,

@@ -738,24 +738,26 @@ describe('RPCPlugin', () => {
 		})
 	})
 
-	describe('logLevel configuration', () => {
-		it('defaults to info logLevel', () => {
-			const plugin = new RPCPlugin({
-				tsConfigPath: validTsConfigPath,
-				outputDir: path.join(__dirname, '..', 'generated')
-			})
-
-			expect((plugin as any).logLevel).toBe('info')
-		})
-
-		it('accepts silent logLevel', () => {
+	describe('logger integration', () => {
+		it('emits a structured configuration log when modules are registered', async () => {
 			const plugin = new RPCPlugin({
 				tsConfigPath: validTsConfigPath,
 				outputDir: path.join(__dirname, '..', 'generated'),
-				logLevel: 'silent'
+				generateOnInit: false
 			})
 
-			expect((plugin as any).logLevel).toBe('silent')
+			const emit = vi.fn()
+			;(plugin as any).logger = { emit }
+
+			await plugin.afterModulesRegistered({} as any, {} as any)
+
+			expect(emit).toHaveBeenCalledWith(
+				expect.objectContaining({
+					level: 'info',
+					category: 'plugins',
+					details: { plugin: 'rpc-plugin' }
+				})
+			)
 		})
 	})
 })
