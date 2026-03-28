@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.7.8
+
+### Patch Changes
+
+- 1fca4ed: Remove logging methods
+
 ## 1.7.7
 
 ### Patch Changes
