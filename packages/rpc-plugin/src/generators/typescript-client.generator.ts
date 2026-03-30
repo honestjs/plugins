@@ -157,7 +157,7 @@ ${this.generateSchemaTypes(schemas)}
 export class ApiClient {
 	private baseUrl: string
 	private defaultHeaders: Record<string, string>
-	private fetchFn: FetchFunction
+	private fetchFn?: FetchFunction
 	private requestInterceptors: readonly RequestInterceptor[]
 	private responseInterceptors: readonly ResponseInterceptor[]
 
@@ -175,7 +175,7 @@ export class ApiClient {
 			'Content-Type': 'application/json',
 			...options.defaultHeaders
 		}
-		this.fetchFn = options.fetchFn || fetch
+		this.fetchFn = options.fetchFn
 		this.requestInterceptors = options.requestInterceptors || []
 		this.responseInterceptors = options.responseInterceptors || []
 	}
@@ -264,7 +264,7 @@ export class ApiClient {
 
 		try {
 			const interceptedRequest = await this.applyRequestInterceptors(url.toString(), requestOptions)
-			let response = await this.fetchFn(interceptedRequest.url, interceptedRequest.init)
+			let response = await (this.fetchFn || fetch)(interceptedRequest.url, interceptedRequest.init)
 			response = await this.applyResponseInterceptors(response)
 
 			if (response.status === 204 || response.headers.get('content-length') === '0') {
