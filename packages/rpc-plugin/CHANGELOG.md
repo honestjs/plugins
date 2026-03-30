@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.7.9
+
+### Patch Changes
+
+- a047652: Fix default fetch missing its correct context when the client used on browser.
+
 ## 1.7.8
 
 ### Patch Changes
