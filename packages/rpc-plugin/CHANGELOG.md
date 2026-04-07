@@ -1,5 +1,11 @@
 # @honestjs/rpc-plugin
 
+## 1.7.10
+
+### Patch Changes
+
+- 0ea63dc: Update dependencies
+
 ## 1.7.9
 
 ### Patch Changes
